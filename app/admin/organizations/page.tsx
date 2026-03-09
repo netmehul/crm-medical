@@ -147,7 +147,7 @@ export default function OrganizationsPage() {
                 {orgs.map((org) => (
                   <tr
                     key={org.id}
-                    onClick={() => router.push(`/admin/organizations/${org.id}`)}
+                    onClick={() => router.push(`/admin/organizations/${org.slug || org.id}`)}
                     className="border-b border-border-subtle/50 hover:bg-bg-hover transition-colors group cursor-pointer"
                   >
                     <td className="px-6 py-4">

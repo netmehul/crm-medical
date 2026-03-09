@@ -229,7 +229,7 @@ export default function PatientsPage() {
                           <Avatar name={p.name} size="sm" />
                           <div>
                             <p className="text-sm font-semibold text-text-primary">{p.name}</p>
-                            <p className="text-[10px] font-mono text-text-muted mt-0.5 tracking-tight">{p.id}</p>
+                            <p className="text-[10px] font-mono text-text-muted mt-0.5 tracking-tight">{p.patientCode || p.id.slice(0, 8)}</p>
                           </div>
                         </div>
                       </td>
@@ -268,7 +268,7 @@ export default function PatientsPage() {
                     <Avatar name={p.name} size="md" />
                     <div>
                       <h3 className="font-semibold text-text-primary">{p.name}</h3>
-                      <p className="text-[11px] text-text-muted font-mono">{p.id}</p>
+                      <p className="text-[11px] text-text-muted font-mono">{p.patientCode || p.id.slice(0, 8)}</p>
                     </div>
                   </div>
                   <Badge variant={statusVariant[p.status]}>{p.status}</Badge>

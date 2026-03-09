@@ -53,6 +53,7 @@ export interface DashboardStats {
 export interface OrgListItem {
   id: string;
   name: string;
+  slug: string;
   owner_email: string;
   phone: string | null;
   plan: string;
