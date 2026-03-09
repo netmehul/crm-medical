@@ -171,6 +171,20 @@ export default function AppointmentsPage() {
     if (!container) return;
     const minutes = getMinutesFromY(e.clientY, container);
     if (minutes < HOURS[0] * 60 || minutes >= (HOURS[HOURS.length - 1] + 1) * 60) return;
+
+    // Prevent dragging in the past
+    const now = new Date();
+    const isToday = date === dateToStr(now);
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    if (isToday && minutes < nowMins) {
+      addToast({ type: "warning", title: "Cannot book in the past" });
+      return;
+    }
+    if (new Date(date) < new Date(dateToStr(now)) && !isToday) {
+      addToast({ type: "warning", title: "Cannot book in the past" });
+      return;
+    }
+
     setDragStart({ date, minutes });
     setDragEnd(minutes + 30);
     setIsDragging(true);
@@ -204,6 +218,15 @@ export default function AppointmentsPage() {
   const handleQuickBook = () => {
     const startMins = quickStartTime ? (parseInt(quickStartTime.split(":")[0]) * 60 + parseInt(quickStartTime.split(":")[1] || "0")) : 0;
     const endMins = quickEndTime ? (parseInt(quickEndTime.split(":")[0]) * 60 + parseInt(quickEndTime.split(":")[1] || "0")) : 30;
+
+    // Final check for past appointments
+    const scheduledAtDate = new Date(`${quickDate}T${quickStartTime || "00:00"}:00`);
+    if (scheduledAtDate < new Date(new Date().getTime() - 60000)) {
+      addToast({ type: "error", title: "Cannot book in the past" });
+      setQuickCreateOpen(false);
+      return;
+    }
+
     const durationMins = Math.max(15, Math.min(120, endMins - startMins));
     const params = new URLSearchParams({
       date: quickDate,

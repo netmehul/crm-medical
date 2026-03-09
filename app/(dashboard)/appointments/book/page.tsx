@@ -14,12 +14,22 @@ import { formatDate, formatTime } from "@/lib/utils";
 import { useToast } from "@/lib/toast-context";
 
 // 15-min slots from 8:00 to 19:00 to match calendar drag-select (8 AM - 7 PM)
+const timeToMinutes = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + (m || 0);
+};
+
 const timeSlots = Array.from({ length: 45 }, (_, i) => {
   const totalMins = 8 * 60 + i * 15;
   const h = Math.floor(totalMins / 60);
   const m = totalMins % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 });
+
+function getTodayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 const appointmentTypes = [
   { label: "General", value: "general" },
@@ -130,6 +140,12 @@ export default function BookAppointmentPage() {
     const pid = isFromPatient ? patientIdParam : patientId;
     if (!pid || !date || !time) {
       addToast({ type: "warning", title: "Please fill required fields" });
+      return;
+    }
+
+    const scheduledAtDate = new Date(`${date}T${time}:00`);
+    if (scheduledAtDate < new Date(new Date().getTime() - 60000)) {
+      addToast({ type: "error", title: "Cannot book in the past", message: "Please select a future date and time." });
       return;
     }
 
@@ -267,7 +283,14 @@ export default function BookAppointmentPage() {
         </div>
 
         <div>
-          <Input label="Appointment Date" type="date" value={date} onChange={(e) => { setDate(e.target.value); setTime(""); }} required />
+          <Input
+            label="Appointment Date"
+            type="date"
+            value={date}
+            min={getTodayStr()}
+            onChange={(e) => { setDate(e.target.value); setTime(""); }}
+            required
+          />
         </div>
 
         <div>
@@ -292,7 +315,10 @@ export default function BookAppointmentPage() {
             <label className="block text-xs font-bold text-text-secondary uppercase tracking-tight mb-3">Available Slots</label>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
               {timeSlots.map((t) => {
-                const booked = bookedSlots.includes(t);
+                const isToday = date === getTodayStr();
+                const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
+                const past = isToday && timeToMinutes(t) < nowMins;
+                const booked = bookedSlots.includes(t) || past;
                 const selected = time === t;
                 return (
                   <button
