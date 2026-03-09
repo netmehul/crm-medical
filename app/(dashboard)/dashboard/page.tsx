@@ -228,7 +228,7 @@ export default function DashboardPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  onClick={() => router.push(`/patients/${apt.patientId}`)}
+                  onClick={() => router.push(`/patients/${apt.patientCode || apt.patientId}`)}
                   className="flex items-center gap-3 md:gap-4 p-3 rounded-xl bg-bg-base border border-transparent hover:border-border-subtle hover:bg-bg-hover transition-all group cursor-pointer"
                 >
                   <Avatar name={apt.patientName} size="md" />

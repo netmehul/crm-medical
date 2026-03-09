@@ -47,6 +47,7 @@ export interface Appointment {
   id: string;
   patientId: string;
   patientName: string;
+  patientCode?: string;
   patientAge?: number;
   doctorId?: string;
   doctorName: string;

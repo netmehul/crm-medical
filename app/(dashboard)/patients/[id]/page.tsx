@@ -287,7 +287,7 @@ export default function PatientProfilePage() {
               </div>
             </div>
             <p className="text-sm text-text-secondary font-medium outline-none">
-              {patient.age}y • {patient.gender} • <span className="text-text-muted font-mono bg-bg-surface px-2 py-0.5 rounded border border-border-subtle">{patient.id}</span>
+              {patient.age}y • {patient.gender} • <span className="text-text-muted font-mono bg-bg-surface px-2 py-0.5 rounded border border-border-subtle">{patient.patientCode || patient.id.slice(0, 8)}</span>
             </p>
 
             <div className="flex items-center justify-center md:justify-start gap-4 mt-4 overflow-x-auto no-scrollbar pb-1">
@@ -340,6 +340,7 @@ export default function PatientProfilePage() {
             <h3 className="font-display font-semibold text-sm text-text-primary mb-4">Contact Information</h3>
             <div className="space-y-3">
               {[
+                { label: "Code", value: patient.patientCode || patient.id.slice(0, 8) },
                 { label: "Phone", value: patient.phone },
                 { label: "Email", value: patient.email || "—" },
                 { label: "Blood Group", value: patient.bloodGroup || "—" },

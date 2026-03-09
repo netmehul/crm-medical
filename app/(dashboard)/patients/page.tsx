@@ -221,7 +221,7 @@ export default function PatientsPage() {
                   {filtered.map((p, i) => (
                     <tr
                       key={p.id}
-                      onClick={() => router.push(`/patients/${p.id}`)}
+                      onClick={() => router.push(`/patients/${p.patientCode || p.id}`)}
                       className="hover:bg-bg-hover transition-colors group cursor-pointer"
                     >
                       <td className="px-4 py-4">
@@ -260,7 +260,7 @@ export default function PatientsPage() {
             {filtered.map((p) => (
               <div
                 key={p.id}
-                onClick={() => router.push(`/patients/${p.id}`)}
+                onClick={() => router.push(`/patients/${p.patientCode || p.id}`)}
                 className="glass-card p-4 active:scale-[0.98] transition-transform"
               >
                 <div className="flex items-start justify-between mb-3">

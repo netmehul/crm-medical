@@ -96,6 +96,7 @@ function mapAppointment(r: Record<string, unknown>): Appointment {
     id: r.id as string,
     patientId: r.patient_id as string,
     patientName: r.patient_name as string || "",
+    patientCode: r.patient_code as string | undefined,
     doctorId: r.doctor_id as string | undefined,
     doctorName: r.doctor_name as string || "",
     date,
