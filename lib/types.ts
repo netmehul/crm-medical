@@ -71,6 +71,7 @@ export interface Prescription {
   status: "Draft" | "Finalized";
   followup_required?: boolean;
   followup_date?: string;
+  followup_time?: string;
   followup_notes?: string;
 }
 

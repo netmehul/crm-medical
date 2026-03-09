@@ -30,7 +30,7 @@ export default function PrescriptionsPage() {
 
   const [rxForm, setRxForm] = useState({
     patientId: "", patientSearch: "", diagnosis: "", notes: "",
-    followupRequired: false, followupDate: "", followupNotes: "",
+    followupRequired: false, followupDate: "", followupTime: "10:00", followupNotes: "",
     medications: [{ id: "1", drugName: "", dosage: "", frequency: "", duration: "", notes: "" }] as Medication[],
   });
 
@@ -106,6 +106,7 @@ export default function PrescriptionsPage() {
         status: status.toLowerCase(),
         followup_required: rxForm.followupRequired,
         followup_date: rxForm.followupRequired ? rxForm.followupDate : undefined,
+        followup_time: rxForm.followupRequired ? rxForm.followupTime : undefined,
         followup_notes: rxForm.followupRequired ? rxForm.followupNotes : undefined,
         medications: rxForm.medications
           .filter((m) => m.drugName)
@@ -120,7 +121,7 @@ export default function PrescriptionsPage() {
       addToast({ type: "success", title: `Prescription ${status === "Draft" ? "saved as draft" : "finalized"}` });
       setRxForm({
         patientId: "", patientSearch: "", diagnosis: "", notes: "",
-        followupRequired: false, followupDate: "", followupNotes: "",
+        followupRequired: false, followupDate: "", followupTime: "10:00", followupNotes: "",
         medications: [{ id: "1", drugName: "", dosage: "", frequency: "", duration: "", notes: "" }]
       });
       setCreateOpen(false);
@@ -297,13 +298,20 @@ export default function PrescriptionsPage() {
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-border-subtle"
+                className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-border-subtle"
               >
                 <Input
                   label="Follow-up Date"
                   type="date"
                   value={rxForm.followupDate}
                   onChange={(e) => setRxForm(f => ({ ...f, followupDate: e.target.value }))}
+                  required={rxForm.followupRequired}
+                />
+                <Input
+                  label="Follow-up Time"
+                  type="time"
+                  value={rxForm.followupTime}
+                  onChange={(e) => setRxForm(f => ({ ...f, followupTime: e.target.value }))}
                   required={rxForm.followupRequired}
                 />
                 <Input
@@ -408,7 +416,12 @@ export default function PrescriptionsPage() {
                   <Calendar size={14} /> Scheduled Follow-up
                 </h4>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-text-primary">Date: {formatDate(viewRx.followup_date)}</p>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-text-primary">Date: {formatDate(viewRx.followup_date)}</p>
+                    {viewRx.followup_time && (
+                      <p className="text-xs text-text-secondary font-medium italic">Time: {viewRx.followup_time.slice(0, 5)}</p>
+                    )}
+                  </div>
                   <Badge variant="brand">Scheduled</Badge>
                 </div>
                 {viewRx.followup_notes && (
