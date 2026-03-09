@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CalendarDays, List, Plus, ChevronLeft, ChevronRight, Loader2,
-  Clock, LayoutGrid, Columns3,
+  Clock, LayoutGrid, Columns3, Edit2, Trash2
 } from "lucide-react";
 import { appointmentsApi } from "@/lib/api";
 import { Appointment } from "@/lib/types";
@@ -20,7 +20,7 @@ import { useToast } from "@/lib/toast-context";
 type ViewMode = "month" | "week" | "day" | "list";
 
 const statusVariant: Record<string, "info" | "success" | "muted" | "danger"> = {
-  Scheduled: "info", Completed: "success", Cancelled: "muted", "No-show": "danger",
+  Scheduled: "info", Completed: "success", Cancelled: "muted", "No-show": "danger", "Checked-in": "success",
 };
 
 const statusDotColor: Record<string, string> = {
@@ -155,6 +155,23 @@ export default function AppointmentsPage() {
     } catch {
       addToast({ type: "error", title: "Failed to check in" });
     }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this appointment?")) return;
+    try {
+      await appointmentsApi.delete(id);
+      addToast({ type: "success", title: "Appointment deleted" });
+      fetchAppointments();
+    } catch {
+      addToast({ type: "error", title: "Failed to delete appointment" });
+    }
+  };
+
+  const handleEdit = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    router.push(`/appointments/book?editId=${id}`);
   };
 
   // Drag-to-create handlers
@@ -404,17 +421,21 @@ export default function AppointmentsPage() {
                 <p className="text-xs text-text-muted mb-4">{dayAppointments.length} appointment{dayAppointments.length !== 1 ? "s" : ""}</p>
                 <div className="space-y-2">
                   {dayAppointments.map((a) => (
-                    <div key={a.id} className="p-3 rounded-lg bg-bg-surface border border-border-subtle">
+                    <div key={a.id} className="p-3 rounded-lg bg-bg-surface border border-border-subtle group">
                       <div className="flex items-center gap-2 mb-1">
                         <Avatar name={a.patientName} size="sm" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-text-primary truncate">{a.patientName}</p>
                           <p className="text-xs text-text-muted font-mono">{formatTime(a.time)}</p>
                         </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={(e) => handleEdit(e, a.id)} className="p-1 text-text-muted hover:text-brand" title="Edit"><Edit2 size={13} /></button>
+                          <button onClick={(e) => handleDelete(e, a.id)} className="p-1 text-text-muted hover:text-danger" title="Delete"><Trash2 size={13} /></button>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 mt-2">
-                        <Badge variant={statusVariant[a.status]} className="text-[10px]">{a.status}</Badge>
-                        <span className="text-[10px] text-text-muted">{a.type}</span>
+                        <Badge variant={statusVariant[a.status] || "info"} className="text-[10px]">{a.status}</Badge>
+                        <span className="text-[10px] text-text-muted truncate">{a.type}</span>
                         {a.status === "Scheduled" && !checkedIn.has(a.id) && (
                           <button onClick={() => handleCheckIn(a)} className="ml-auto text-[10px] text-brand hover:underline cursor-pointer">Check In</button>
                         )}
@@ -608,13 +629,15 @@ export default function AppointmentsPage() {
                       </td>
                       <td className="px-4 py-4 text-sm text-text-secondary font-medium">{a.doctorName}</td>
                       <td className="px-4 py-4 text-sm text-text-secondary">{a.type}</td>
-                      <td className="px-4 py-4"><Badge variant={statusVariant[a.status]}>{a.status}</Badge></td>
+                      <td className="px-4 py-4"><Badge variant={statusVariant[a.status] || "info"}>{a.status}</Badge></td>
                       <td className="px-4 py-4">
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button size="sm" variant="ghost" className="p-0 w-8 h-8 rounded-lg text-text-muted hover:text-brand" onClick={(e) => handleEdit(e, a.id)} title="Edit"><Edit2 size={15} /></Button>
+                          <Button size="sm" variant="ghost" className="p-0 w-8 h-8 rounded-lg text-text-muted hover:text-danger" onClick={(e) => handleDelete(e, a.id)} title="Delete"><Trash2 size={15} /></Button>
                           {a.status === "Scheduled" && !checkedIn.has(a.id) && (
-                            <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleCheckIn(a)}>Check In</Button>
+                            <Button size="sm" variant="ghost" className="ml-2 h-8" onClick={(e) => { e.stopPropagation(); handleCheckIn(a); }}>Check In</Button>
                           )}
-                          {checkedIn.has(a.id) && <Badge variant="success">Checked In</Badge>}
+                          {checkedIn.has(a.id) && <Badge variant="success" className="ml-2">Checked In</Badge>}
                         </div>
                       </td>
                     </tr>
@@ -663,24 +686,25 @@ export default function AppointmentsPage() {
                 </div>
 
                 <div className="flex items-center justify-between mt-4">
-                  <div className="flex -space-x-2">
-                    {/* Simplified checked in indicators if any? No, let's keep it simple */}
+                  <div className="flex gap-1.5">
+                    <button onClick={(e) => handleEdit(e, a.id)} className="w-9 h-9 flex items-center justify-center rounded-lg bg-bg-base border border-border-base text-text-muted hover:text-brand transition-colors"><Edit2 size={15} /></button>
+                    <button onClick={(e) => handleDelete(e, a.id)} className="w-9 h-9 flex items-center justify-center rounded-lg bg-bg-base border border-border-base text-text-muted hover:text-danger transition-colors"><Trash2 size={15} /></button>
                   </div>
                   {a.status === "Scheduled" && !checkedIn.has(a.id) ? (
                     <Button
                       size="sm"
                       onClick={(e) => { e.stopPropagation(); handleCheckIn(a); }}
-                      className="w-full"
+                      className="flex-1"
                     >
-                      Check In Patient
+                      Check In
                     </Button>
                   ) : checkedIn.has(a.id) ? (
-                    <div className="w-full py-2 bg-success/10 text-success text-xs font-bold rounded-lg flex items-center justify-center gap-2">
+                    <div className="flex-1 py-2 bg-success/10 text-success text-xs font-bold rounded-lg flex items-center justify-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-                      Patient Checked In
+                      Checked In
                     </div>
                   ) : (
-                    <Button variant="ghost" size="sm" className="w-full">View Details</Button>
+                    <Button variant="ghost" size="sm" className="flex-1">Details</Button>
                   )}
                 </div>
               </div>

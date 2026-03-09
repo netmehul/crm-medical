@@ -56,6 +56,11 @@ function qs(params: Record<string, unknown>): string {
   return "?" + entries.map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join("&");
 }
 
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 // ─── Mappers: backend snake_case → frontend camelCase ────────────────
 
 function capitalize(s: string): string {
@@ -88,9 +93,23 @@ function mapPatient(r: Record<string, unknown>): Patient {
 }
 
 function mapAppointment(r: Record<string, unknown>): Appointment {
-  const dateStr = (r.appointment_date || r.scheduled_at || "") as string;
-  const date = dateStr.includes("T") ? dateStr.split("T")[0] : dateStr;
-  const time = r.start_time as string || (dateStr.includes("T") ? dateStr.split("T")[1]?.substring(0, 5) : "") || "";
+  const dateStr = (r.scheduled_at || r.appointment_date || "") as string;
+  let date = "";
+  let time = r.time as string || "";
+
+  if (dateStr) {
+    if (dateStr.includes(" ")) {
+      const parts = dateStr.split(" ");
+      date = parts[0];
+      if (!time) time = parts[1].substring(0, 5);
+    } else if (dateStr.includes("T")) {
+      const parts = dateStr.split("T");
+      date = parts[0];
+      if (!time) time = parts[1].substring(0, 5);
+    } else {
+      date = dateStr;
+    }
+  }
 
   return {
     id: r.id as string,
@@ -99,8 +118,8 @@ function mapAppointment(r: Record<string, unknown>): Appointment {
     patientCode: r.patient_code as string | undefined,
     doctorId: r.doctor_id as string | undefined,
     doctorName: r.doctor_name as string || "",
-    date,
-    time,
+    date: date || todayStr(),
+    time: (time && !time.includes("und")) ? time.substring(0, 5) : "10:00",
     type: capitalize(((r.type as string) || "general").replace(/_/g, "-")) as Appointment["type"],
     status: capitalize((r.status as string) || "scheduled") as Appointment["status"],
     reason: r.reason as string | undefined,

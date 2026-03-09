@@ -13,7 +13,6 @@ import Avatar from "@/components/ui/avatar";
 import { formatDate, formatTime } from "@/lib/utils";
 import { useToast } from "@/lib/toast-context";
 
-// 15-min slots from 8:00 to 19:00 to match calendar drag-select (8 AM - 7 PM)
 const timeToMinutes = (t: string) => {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + (m || 0);
@@ -42,9 +41,10 @@ export default function BookAppointmentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const patientIdParam = searchParams.get("patientId");
+  const editId = searchParams.get("editId");
   const { addToast } = useToast();
 
-  const [patientId, setPatientId] = useState(patientIdParam || "");
+  const [patientId, setPatientId] = useState("");
   const [patient, setPatient] = useState<Patient | null>(null);
   const [patientSearch, setPatientSearch] = useState("");
   const [searchedPatients, setSearchedPatients] = useState<Patient[]>([]);
@@ -57,40 +57,63 @@ export default function BookAppointmentPage() {
   const [notes, setNotes] = useState("");
   const [duration, setDuration] = useState(30);
   const [doctorId, setDoctorId] = useState<string>("");
+  const [status, setStatus] = useState("scheduled");
 
   const [doctors, setDoctors] = useState<TeamMember[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const isFromPatient = !!patientIdParam;
+  const isFromPatient = !!patientIdParam && !editId;
 
+  // Load edit data
+  useEffect(() => {
+    async function loadEdit() {
+      if (!editId) return;
+      try {
+        setLoading(true);
+        const apt = await appointmentsApi.get(editId);
+        setDate(apt.date || "");
+        setTime(apt.time || "");
+        setType(apt.type.toLowerCase().replace(/-/g, "_"));
+        setReason(apt.reason || "");
+        setNotes(apt.notes || "");
+        setDoctorId(apt.doctorId || "");
+        setStatus(apt.status.toLowerCase());
+        setPatientId(apt.patientId);
+        const p = await patientsApi.get(apt.patientId);
+        setPatient(p);
+      } catch {
+        addToast({ type: "error", title: "Failed to load appointment details" });
+        router.back();
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadEdit();
+  }, [editId, addToast, router]);
+
+  // Handle params for new booking
   useEffect(() => {
     const d = searchParams.get("date") || "";
     const t = searchParams.get("time") || "";
     const dur = searchParams.get("duration");
-    if (d) setDate(d);
-    if (t) setTime(t);
-    if (dur) {
+    if (d && !editId) setDate(d);
+    if (t && !editId) setTime(t);
+    if (dur && !editId) {
       const n = parseInt(dur, 10);
-      if (!isNaN(n) && n >= 15 && n <= 120) {
-        const options = [15, 30, 45, 60, 90];
-        const closest = options.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
-        setDuration(closest);
-      }
+      if (!isNaN(n) && n >= 15 && n <= 120) setDuration(Math.round(n / 15) * 15);
     }
-  }, [searchParams]);
+  }, [searchParams, editId]);
 
   useEffect(() => {
-    if (patientIdParam) {
+    if (patientIdParam && !editId) {
       setPatientId(patientIdParam);
       patientsApi.get(patientIdParam).then(setPatient).catch(() => setPatient(null));
     }
-  }, [patientIdParam]);
+  }, [patientIdParam, editId]);
 
   useEffect(() => {
-    if (!patientSearch) {
-      setSearchedPatients([]);
-      return;
-    }
+    if (!patientSearch || editId) return;
     const timer = setTimeout(async () => {
       try {
         const result = await patientsApi.list({ search: patientSearch });
@@ -100,13 +123,12 @@ export default function BookAppointmentPage() {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [patientSearch]);
+  }, [patientSearch, editId]);
 
   const fetchDoctors = useCallback(async () => {
     try {
       const team = await orgApi.getTeam();
-      const docList = team.filter((m) => m.branches?.some((b: { role: string }) => b.role === "org_admin"));
-      setDoctors(docList.length > 0 ? docList : team);
+      setDoctors(team);
       if (team.length > 0 && !doctorId) {
         setDoctorId(team[0].id);
       }
@@ -116,43 +138,38 @@ export default function BookAppointmentPage() {
   }, [doctorId]);
 
   useEffect(() => {
-    if (!isFromPatient) fetchDoctors();
-  }, [isFromPatient, fetchDoctors]);
+    fetchDoctors();
+  }, [fetchDoctors]);
 
-  const [appointments, setAppointments] = useState<{ date: string; time: string }[]>([]);
-  const fetchAppointments = useCallback(async () => {
+  const [dayAppointments, setDayAppointments] = useState<{ date: string; time: string }[]>([]);
+  const fetchDayAppointments = useCallback(async () => {
     if (!date) return;
     try {
       const result = await appointmentsApi.list({ date, limit: 100 });
-      setAppointments(result.items.map((a) => ({ date: a.date, time: a.time })));
+      setDayAppointments(result.items.map((a) => ({ date: a.date, time: a.time })));
     } catch {
-      setAppointments([]);
+      setDayAppointments([]);
     }
   }, [date]);
 
   useEffect(() => {
-    fetchAppointments();
-  }, [fetchAppointments]);
+    fetchDayAppointments();
+  }, [fetchDayAppointments]);
 
-  const bookedSlots = date ? appointments.filter((a) => a.date === date).map((a) => a.time) : [];
+  const bookedSlots = date ? dayAppointments.filter((a) => a.date === date).map((a) => a.time) : [];
 
-  const handleSubmit = async () => {
-    const pid = isFromPatient ? patientIdParam : patientId;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const pid = patientId || patientIdParam;
     if (!pid || !date || !time) {
       addToast({ type: "warning", title: "Please fill required fields" });
       return;
     }
 
-    const scheduledAtDate = new Date(`${date}T${time}:00`);
-    if (scheduledAtDate < new Date(new Date().getTime() - 60000)) {
-      addToast({ type: "error", title: "Cannot book in the past", message: "Please select a future date and time." });
-      return;
-    }
-
     setSubmitting(true);
     try {
-      const scheduledAt = `${date}T${time}:00.000Z`;
-      await appointmentsApi.create({
+      const scheduledAt = `${date} ${time}:00`;
+      const payload = {
         patient_id: pid,
         doctor_id: doctorId || undefined,
         scheduled_at: scheduledAt,
@@ -160,25 +177,42 @@ export default function BookAppointmentPage() {
         start_time: time,
         duration_mins: duration,
         type,
+        status: editId ? status : "scheduled",
         reason: reason || undefined,
         notes: notes || undefined,
-      });
-      addToast({ type: "success", title: "Appointment booked successfully" });
+      };
+
+      if (editId) {
+        await appointmentsApi.update(editId, payload);
+        addToast({ type: "success", title: "Appointment updated successfully" });
+      } else {
+        await appointmentsApi.create(payload);
+        addToast({ type: "success", title: "Appointment booked successfully" });
+      }
+
       if (isFromPatient) {
         router.push(`/patients/${pid}`);
       } else {
         router.push("/appointments");
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to book appointment";
-      addToast({ type: "error", title: "Failed to book appointment", message });
+    } catch (err: any) {
+      const message = err.message || `Failed to ${editId ? "update" : "book"} appointment`;
+      addToast({ type: "error", title: `Failed to ${editId ? "update" : "book"} appointment`, message });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const effectivePatientId = isFromPatient ? patientIdParam : patientId;
-  const effectivePatientName = isFromPatient ? patient?.name : patientSearch && searchedPatients.find((p) => p.id === patientId)?.name;
+  const effectivePatientId = patientId || patientIdParam;
+  const effectivePatientName = patient?.name || patientSearch || "Patient";
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 size={28} className="animate-spin text-brand" />
+      </div>
+    );
+  }
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="max-w-2xl space-y-6">
@@ -188,16 +222,15 @@ export default function BookAppointmentPage() {
 
       <div>
         <h1 className="font-display font-bold text-2xl text-text-primary flex items-center gap-2">
-          <CalendarPlus size={24} className="text-brand" /> Book Appointment
+          <CalendarPlus size={24} className="text-brand" /> {editId ? "Edit Appointment" : "Book Appointment"}
         </h1>
         <p className="text-sm text-text-secondary mt-0.5">
-          {isFromPatient ? "Quick book for this patient" : "Schedule a new appointment"}
+          {editId ? "Update appointment details" : (isFromPatient ? "Quick book for this patient" : "Schedule a new appointment")}
         </p>
       </div>
 
       <div className="glass-card p-4 md:p-6 space-y-6">
-        {/* Patient: only when not from patient view */}
-        {!isFromPatient && (
+        {!isFromPatient && !editId && (
           <div className="relative">
             <Input
               label="Select Patient"
@@ -220,13 +253,14 @@ export default function BookAppointmentPage() {
                     onClick={() => {
                       setPatientId(p.id);
                       setPatientSearch(p.name);
+                      setPatient(p);
                       setShowPatientDropdown(false);
                     }}
                     className="w-full flex items-center gap-4 px-4 py-3 hover:bg-bg-hover text-left transition-colors cursor-pointer border-b border-border-subtle last:border-0"
                   >
                     <Avatar name={p.name} size="md" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-text-primary truncate">{p.name}</p>
+                    <div>
+                      <p className="text-sm font-bold text-text-primary">{p.name}</p>
                       <p className="text-xs text-text-muted">{p.phone}</p>
                     </div>
                   </button>
@@ -236,44 +270,39 @@ export default function BookAppointmentPage() {
           </div>
         )}
 
-        {isFromPatient && patient && (
-          <div className="flex items-center gap-4 p-4 rounded-xl bg-bg-surface border border-brand/20 shadow-sm">
-            <Avatar name={patient.name} size="md" />
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-text-primary truncate">{patient.name}</p>
-              <p className="text-xs text-text-muted transition-all">{patient.phone}</p>
+        {effectivePatientId && (
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-brand/5 border border-brand/10">
+            <Avatar name={effectivePatientName} size="sm" />
+            <div>
+              <p className="text-sm font-bold text-text-primary">{effectivePatientName}</p>
+              <p className="text-xs text-text-muted">Selected Patient</p>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {!isFromPatient && doctors.length > 0 && (
-            <div>
-              <label className="block text-xs font-bold text-text-secondary uppercase tracking-tight mb-2">Assign Doctor</label>
-              <select
-                value={doctorId}
-                onChange={(e) => setDoctorId(e.target.value)}
-                className="w-full bg-bg-base border border-border-base rounded-xl px-4 py-3 text-base md:text-sm text-text-primary cursor-pointer outline-none focus:border-brand focus:ring-4 focus:ring-brand/10 min-h-[48px]"
-              >
-                {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.full_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-tight mb-2">Doctor</label>
+            <select
+              value={doctorId}
+              onChange={(e) => setDoctorId(e.target.value)}
+              className="w-full bg-bg-base border border-border-base rounded-xl px-4 py-3 text-base md:text-sm text-text-primary outline-none focus:border-brand"
+            >
+              <option value="">Select Doctor</option>
+              {doctors.map((d) => (
+                <option key={d.id} value={d.id}>{d.full_name}</option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-bold text-text-secondary uppercase tracking-tight mb-2">Duration</label>
-            <div className="flex bg-bg-surface p-1 rounded-xl border border-border-subtle overflow-x-auto no-scrollbar">
+            <div className="flex gap-2">
               {[15, 30, 45, 60].map((d) => (
                 <button
                   key={d}
                   type="button"
                   onClick={() => setDuration(d)}
-                  className={`flex-1 min-w-[60px] py-2 px-2 text-xs font-bold rounded-lg transition-all ${duration === d ? "bg-brand text-text-on-brand shadow-sm" : "text-text-muted hover:text-text-secondary"
-                    }`}
+                  className={`flex-1 py-3 rounded-xl text-xs font-bold border transition-all ${duration === d ? "bg-brand/10 border-brand text-brand" : "bg-bg-base border-border-base text-text-muted"}`}
                 >
                   {d}m
                 </button>
@@ -301,8 +330,7 @@ export default function BookAppointmentPage() {
                 key={t.value}
                 type="button"
                 onClick={() => setType(t.value)}
-                className={`flex-1 sm:flex-none px-4 py-3 rounded-xl text-xs font-bold transition-all border ${type === t.value ? "bg-brand/10 border-brand text-brand" : "bg-bg-base border-border-base text-text-muted hover:border-brand/30"
-                  }`}
+                className={`flex-1 sm:flex-none px-4 py-3 rounded-xl text-xs font-bold border transition-all ${type === t.value ? "bg-brand/10 border-brand text-brand" : "bg-bg-base border-border-base text-text-muted"}`}
               >
                 {t.label}
               </button>
@@ -318,7 +346,8 @@ export default function BookAppointmentPage() {
                 const isToday = date === getTodayStr();
                 const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
                 const past = isToday && timeToMinutes(t) < nowMins;
-                const booked = bookedSlots.includes(t) || past;
+                const isCurrent = editId && t === time;
+                const booked = (bookedSlots.includes(t) && !isCurrent) || (past && !isCurrent);
                 const selected = time === t;
                 return (
                   <button
@@ -326,10 +355,7 @@ export default function BookAppointmentPage() {
                     type="button"
                     disabled={booked}
                     onClick={() => setTime(t)}
-                    className={`h-11 flex items-center justify-center rounded-xl text-xs font-mono font-bold transition-all border ${booked ? "bg-bg-hover text-text-muted/40 border-transparent cursor-not-allowed line-through" :
-                      selected ? "bg-brand border-brand text-white shadow-lg shadow-brand/20 scale-105" :
-                        "bg-bg-base border-border-base text-text-secondary hover:border-brand"
-                      }`}
+                    className={`h-11 flex items-center justify-center rounded-xl text-xs font-mono font-bold border transition-all ${booked ? "bg-bg-hover text-text-muted/40 border-transparent cursor-not-allowed line-through" : selected ? "bg-brand border-brand text-white shadow-lg" : "bg-bg-base border-border-base text-text-secondary"}`}
                   >
                     {formatTime(t)}
                   </button>
@@ -340,36 +366,14 @@ export default function BookAppointmentPage() {
         )}
 
         <div>
-          <label className="block text-xs font-bold text-text-secondary uppercase tracking-tight mb-2">Patient Concern / Notes</label>
+          <label className="block text-xs font-bold text-text-secondary uppercase tracking-tight mb-2">Notes</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full bg-bg-base border border-border-base rounded-xl px-4 py-3 text-base md:text-sm text-text-primary placeholder:text-text-muted resize-none h-24 focus:border-brand focus:ring-4 focus:ring-brand/10 outline-none"
-            placeholder="What is the patient visiting for?"
+            className="w-full bg-bg-base border border-border-base rounded-xl px-4 py-3 text-base md:text-sm text-text-primary h-24 focus:border-brand outline-none"
+            placeholder="Add any additional notes here..."
           />
         </div>
-
-        {/* Summary Card for Mobile Sticky Feeling */}
-        {effectivePatientId && date && time && (
-          <div className="bg-brand/5 rounded-2xl p-4 border border-brand/20">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-brand">
-                <CheckCircle size={16} />
-              </div>
-              <span className="text-xs font-bold text-brand uppercase tracking-wider">Booking Review</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-[10px] text-text-muted uppercase font-bold tracking-tight">Patient</p>
-                <p className="text-sm font-bold text-text-primary truncate">{effectivePatientName || "Patient"}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-text-muted uppercase font-bold tracking-tight">Schedule</p>
-                <p className="text-sm font-bold text-text-primary">{formatDate(date)} • {formatTime(time)}</p>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <Button
@@ -379,9 +383,9 @@ export default function BookAppointmentPage() {
             isLoading={submitting}
           >
             <CalendarPlus size={18} />
-            Confirm Appointment
+            {editId ? "Update Appointment" : "Confirm Appointment"}
           </Button>
-          <Button variant="ghost" className="w-full h-12" onClick={() => router.back()}>Cancel Booking</Button>
+          <Button variant="ghost" className="w-full h-12" onClick={() => router.back()}>Cancel</Button>
         </div>
       </div>
     </motion.div>

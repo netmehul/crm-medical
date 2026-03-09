@@ -33,11 +33,14 @@ export function formatDate(dateStr: string): string {
 }
 
 export function formatTime(timeStr: string): string {
-  const [h, m] = timeStr.split(":");
+  if (!timeStr) return "--:--";
+  const parts = timeStr.split(":");
+  const h = parts[0];
+  const m = parts[1] || "00";
   const hour = parseInt(h);
   const ampm = hour >= 12 ? "PM" : "AM";
   const h12 = hour % 12 || 12;
-  return `${h12}:${m} ${ampm}`;
+  return `${h12}:${m.slice(0, 2)} ${ampm}`;
 }
 
 export function timeAgo(timestamp: string): string {

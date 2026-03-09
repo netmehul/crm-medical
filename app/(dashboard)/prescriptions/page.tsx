@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Search, FileText, Printer, X, Pill, Loader2, Calendar, History as HistoryIcon } from "lucide-react";
+import { Plus, Search, FileText, Printer, X, Pill, Loader2, Calendar, History as HistoryIcon, Edit2, Trash2 } from "lucide-react";
 import { prescriptionsApi, patientsApi } from "@/lib/api";
 import { Prescription, Medication, Patient } from "@/lib/types";
 import Button from "@/components/ui/button";
@@ -22,6 +22,7 @@ export default function PrescriptionsPage() {
   const [viewRx, setViewRx] = useState<Prescription | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const { addToast } = useToast();
 
   // Patient search state
@@ -33,6 +34,42 @@ export default function PrescriptionsPage() {
     followupRequired: false, followupDate: "", followupTime: "10:00", followupNotes: "",
     medications: [{ id: "1", drugName: "", dosage: "", frequency: "", duration: "", notes: "" }] as Medication[],
   });
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this prescription?")) return;
+    try {
+      await prescriptionsApi.delete(id);
+      addToast({ type: "success", title: "Prescription deleted" });
+      fetchPrescriptions();
+    } catch {
+      addToast({ type: "error", title: "Failed to delete prescription" });
+    }
+  };
+
+  const startEdit = (e: React.MouseEvent, rx: Prescription) => {
+    e.stopPropagation();
+    setEditingId(rx.id);
+    setRxForm({
+      patientId: rx.patientId,
+      patientSearch: rx.patientName,
+      diagnosis: rx.diagnosis,
+      notes: rx.notes || "",
+      followupRequired: rx.followup_required || false,
+      followupDate: rx.followup_date || "",
+      followupTime: rx.followup_time || "10:00",
+      followupNotes: rx.followup_notes || "",
+      medications: rx.medications.map((m, idx) => ({
+        id: String(idx + 1),
+        drugName: m.drugName,
+        dosage: m.dosage,
+        frequency: m.frequency,
+        duration: m.duration,
+        notes: m.notes || ""
+      }))
+    });
+    setCreateOpen(true);
+  };
 
   const fetchPrescriptions = useCallback(async () => {
     try {
@@ -94,11 +131,12 @@ export default function PrescriptionsPage() {
   };
 
   const handleCreate = async (status: "Draft" | "Finalized") => {
-    if (!rxForm.patientId) return;
+    if (!rxForm.patientId) return addToast({ type: "error", title: "Select a patient" });
+    if (!rxForm.diagnosis) return addToast({ type: "error", title: "Enter diagnosis" });
 
     try {
       setCreating(true);
-      await prescriptionsApi.create({
+      const payload = {
         patient_id: rxForm.patientId,
         diagnosis: rxForm.diagnosis,
         notes: rxForm.notes,
@@ -117,20 +155,39 @@ export default function PrescriptionsPage() {
             duration: m.duration,
             instructions: m.notes,
           })),
-      });
-      addToast({ type: "success", title: `Prescription ${status === "Draft" ? "saved as draft" : "finalized"}` });
+      };
+
+      if (editingId) {
+        await prescriptionsApi.update(editingId, payload);
+        addToast({ type: "success", title: "Prescription updated" });
+      } else {
+        await prescriptionsApi.create(payload);
+        addToast({ type: "success", title: `Prescription ${status === "Draft" ? "saved as draft" : "finalized"}` });
+      }
+
       setRxForm({
         patientId: "", patientSearch: "", diagnosis: "", notes: "",
         followupRequired: false, followupDate: "", followupTime: "10:00", followupNotes: "",
-        medications: [{ id: "1", drugName: "", dosage: "", frequency: "", duration: "", notes: "" }]
+        medications: [{ id: "1", drugName: "", dosage: "", frequency: "", duration: "", notes: "" }] as Medication[]
       });
+      setEditingId(null);
       setCreateOpen(false);
       await fetchPrescriptions();
     } catch {
-      addToast({ type: "error", title: "Failed to create prescription" });
+      addToast({ type: "error", title: `Failed to ${editingId ? "update" : "save"} prescription` });
     } finally {
       setCreating(false);
     }
+  };
+
+  const startNew = () => {
+    setEditingId(null);
+    setRxForm({
+      patientId: "", patientSearch: "", diagnosis: "", notes: "",
+      followupRequired: false, followupDate: "", followupTime: "10:00", followupNotes: "",
+      medications: [{ id: "1", drugName: "", dosage: "", frequency: "", duration: "", notes: "" }] as Medication[]
+    });
+    setCreateOpen(true);
   };
 
   const handleView = async (rx: Prescription) => {
@@ -155,7 +212,7 @@ export default function PrescriptionsPage() {
           <h1 className="font-display font-bold text-2xl text-text-primary">Prescriptions</h1>
           <p className="text-sm text-text-secondary mt-0.5">{prescriptions.length} total prescriptions</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} size="sm"><Plus size={16} /> New Prescription</Button>
+        <Button onClick={startNew} size="sm"><Plus size={16} /> New Prescription</Button>
       </div>
 
       <div className="w-64">
@@ -168,7 +225,7 @@ export default function PrescriptionsPage() {
           <Loader2 size={28} className="animate-spin text-brand" />
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<FileText size={32} />} title="No prescriptions" description="No prescriptions found. Create one to get started." actionLabel="New Prescription" onAction={() => setCreateOpen(true)} />
+        <EmptyState icon={<FileText size={32} />} title="No prescriptions" description="No prescriptions found. Create one to get started." actionLabel="New Prescription" onAction={startNew} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((rx, i) => (
@@ -178,7 +235,7 @@ export default function PrescriptionsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
               onClick={() => handleView(rx)}
-              className="glass-card p-5 hover:border-border-brand transition-all cursor-pointer"
+              className="glass-card p-5 hover:border-border-brand transition-all cursor-pointer group"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -188,9 +245,15 @@ export default function PrescriptionsPage() {
                     <p className="text-xs text-text-muted">{formatDate(rx.date)}</p>
                   </div>
                 </div>
-                <Badge variant={rx.status === "Finalized" ? "success" : "warning"}>{rx.status}</Badge>
+                <div className="flex flex-col items-end gap-2">
+                  <Badge variant={rx.status === "Finalized" ? "success" : "warning"}>{rx.status}</Badge>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => startEdit(e, rx)} className="p-1.5 rounded-md text-text-muted hover:text-brand hover:bg-brand/10 transition-colors" title="Edit"><Edit2 size={14} /></button>
+                    <button onClick={(e) => handleDelete(e, rx.id)} className="p-1.5 rounded-md text-text-muted hover:text-danger hover:bg-danger/10 transition-colors" title="Delete"><Trash2 size={14} /></button>
+                  </div>
+                </div>
               </div>
-              <p className="text-xs text-text-secondary mb-2">{rx.diagnosis}</p>
+              <p className="text-xs text-text-secondary mb-2 line-clamp-1">{rx.diagnosis}</p>
               <p className="text-xs text-text-muted">{rx.medications.length} medication{rx.medications.length !== 1 ? "s" : ""} • {rx.doctorName}</p>
             </motion.div>
           ))}
@@ -198,7 +261,7 @@ export default function PrescriptionsPage() {
       )}
 
       {/* Create Prescription Modal */}
-      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Create Prescription" size="xl">
+      <Modal isOpen={createOpen} onClose={() => { setCreateOpen(false); setEditingId(null); }} title={editingId ? "Edit Prescription" : "Create Prescription"} size="xl">
         <div className="space-y-5">
           {/* Patient */}
           <div className="relative">
