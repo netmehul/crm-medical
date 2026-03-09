@@ -4,40 +4,38 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Stethoscope, User, ShieldCheck, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { Role } from "@/lib/types";
 import Input from "@/components/ui/input";
 import Button from "@/components/ui/button";
-
-const roles: { value: Role; label: string; icon: React.ReactNode }[] = [
-  { value: "doctor", label: "Doctor", icon: <Stethoscope size={18} /> },
-  { value: "receptionist", label: "Receptionist", icon: <User size={18} /> },
-  { value: "staff", label: "Staff", icon: <ShieldCheck size={18} /> },
-];
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role>("doctor");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, isAppReady, isPlatformAdmin, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) router.push("/dashboard");
-  }, [isAuthenticated, isLoading, router]);
+    if (isLoading) return;
+    if (isPlatformAdmin) router.push("/admin");
+    else if (isAppReady) router.push("/dashboard");
+  }, [isAppReady, isPlatformAdmin, isLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      await login(email, password, role);
-      router.push("/dashboard");
-    } catch {
-      setError("Invalid credentials. Please try again.");
+      const result = await login(email, password);
+      if (result.branches && result.branches.length > 1) {
+        router.push("/branch-select");
+      } else {
+        router.push(result.redirect === "/admin" ? "/admin" : "/dashboard");
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Invalid credentials. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -130,31 +128,14 @@ export default function LoginPage() {
             <h2 className="font-display font-bold text-xl text-text-primary mb-1">Welcome back</h2>
             <p className="text-sm text-text-secondary mb-6">Sign in to your account to continue</p>
 
-            {/* Role selector */}
-            <div className="flex gap-2 mb-6">
-              {roles.map((r) => (
-                <button
-                  key={r.value}
-                  onClick={() => setRole(r.value)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
-                    role === r.value
-                      ? "bg-brand/15 text-brand border border-border-brand"
-                      : "bg-bg-surface text-text-secondary border border-border-subtle hover:bg-bg-hover"
-                  }`}
-                >
-                  {r.icon}
-                  <span className="hidden sm:inline">{r.label}</span>
-                </button>
-              ))}
-            </div>
-
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
                 label="Email"
                 type="email"
-                placeholder="doctor@medicrm.com"
+                placeholder="owner@demo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
               />
 
               <Input
@@ -181,7 +162,7 @@ export default function LoginPage() {
             </form>
 
             <p className="text-xs text-text-muted text-center mt-6">
-              Demo: Enter any email/password and select a role
+              Demo: owner@demo.com / password123
             </p>
 
             <div className="mt-6 pt-4 border-t border-border-subtle text-center">

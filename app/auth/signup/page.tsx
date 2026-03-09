@@ -4,49 +4,45 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Stethoscope, User, ShieldCheck, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { Role } from "@/lib/types";
 import Input from "@/components/ui/input";
 import Button from "@/components/ui/button";
-
-const roles: { value: Role; label: string; icon: React.ReactNode; desc: string }[] = [
-  { value: "doctor", label: "Doctor", icon: <Stethoscope size={18} />, desc: "Full access to clinical features" },
-  { value: "receptionist", label: "Receptionist", icon: <User size={18} />, desc: "Manage appointments & patients" },
-  { value: "staff", label: "Staff", icon: <ShieldCheck size={18} />, desc: "Inventory & basic access" },
-];
 
 export default function SignUpPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState<Role>("doctor");
+  const [orgName, setOrgName] = useState("");
   const [clinicName, setClinicName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const { register, isAuthenticated, isLoading } = useAuth();
+  const { register, isAppReady, isPlatformAdmin, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) router.push("/dashboard");
-  }, [isAuthenticated, isLoading, router]);
+    if (isLoading) return;
+    if (isPlatformAdmin) router.push("/admin");
+    else if (isAppReady) router.push("/dashboard");
+  }, [isAppReady, isPlatformAdmin, isLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
     if (!name.trim()) { setError("Please enter your full name."); return; }
+    if (!orgName.trim() && !clinicName.trim()) { setError("Please enter your organization or clinic name."); return; }
     if (!email.trim()) { setError("Please enter your email address."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
     if (password !== confirmPassword) { setError("Passwords do not match."); return; }
 
     setLoading(true);
     try {
-      await register(name, email, password, role);
+      await register(orgName || clinicName, clinicName || orgName, name, email, password);
       router.push("/dashboard");
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -153,27 +149,6 @@ export default function SignUpPage() {
             <h2 className="font-display font-bold text-xl text-text-primary mb-1">Create your account</h2>
             <p className="text-sm text-text-secondary mb-6">Get started with your free 30-day trial</p>
 
-            {/* Role selector */}
-            <div className="space-y-2 mb-6">
-              <label className="block text-xs font-medium text-text-secondary">Your role</label>
-              <div className="grid grid-cols-3 gap-2">
-                {roles.map((r) => (
-                  <button
-                    key={r.value}
-                    onClick={() => setRole(r.value)}
-                    className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
-                      role === r.value
-                        ? "bg-brand/15 text-brand border border-border-brand"
-                        : "bg-bg-surface text-text-secondary border border-border-subtle hover:bg-bg-hover"
-                    }`}
-                  >
-                    {r.icon}
-                    <span>{r.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
                 label="Full Name"
@@ -184,8 +159,16 @@ export default function SignUpPage() {
               />
 
               <Input
-                label="Clinic Name"
-                placeholder="Your clinic or practice name"
+                label="Organization Name"
+                placeholder="e.g. MediPoint Group"
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                required
+              />
+
+              <Input
+                label="First Branch Name"
+                placeholder="e.g. MediPoint — Ahmedabad"
                 value={clinicName}
                 onChange={(e) => setClinicName(e.target.value)}
               />

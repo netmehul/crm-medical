@@ -60,18 +60,36 @@
   --gradient-brand: linear-gradient(135deg, #0BB37A15, #818CF808);
   --mesh-opacity:   0.035;
 
-  /* ─── Type Scale (fluid) ─── */
-  --type-xs:   clamp(11px, 1.1vw, 12px);
-  --type-sm:   clamp(13px, 1.3vw, 14px);
-  --type-base: clamp(15px, 1.5vw, 16px);
-  --type-md:   clamp(17px, 1.8vw, 19px);
-  --type-lg:   clamp(20px, 2.2vw, 24px);
-  --type-xl:   clamp(26px, 3vw, 32px);
-  --type-2xl:  clamp(36px, 4.5vw, 48px);
-  --type-3xl:  clamp(48px, 6vw, 72px);
-  --type-4xl:  clamp(64px, 8vw, 104px);
+  /* ─── Type Scale (fluid/mobile-first) ─── */
+  --type-xs:   11px;
+  --type-sm:   13px;
+  --type-base: 14px;
+  --type-md:   16px;
+  --type-lg:   18px;
+  --type-xl:   22px;
+  --type-2xl:  26px;
+  --type-3xl:  32px;
+
+  /* ─── Layout Constants ─── */
+  --header-height: 56px;
+  --bottom-nav-height: 64px;
+  --sidebar-width: 248px;
 
   scroll-behavior: smooth;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --type-xs:   12px;
+    --type-sm:   14px;
+    --type-base: 15px;
+    --type-md:   19px;
+    --type-lg:   24px;
+    --type-xl:   32px;
+    --type-2xl:  48px;
+    --type-3xl:  72px;
+    --header-height: 64px;
+  }
 }
 
 /* ─── Light Mode — "Porcelain" ─── */
@@ -124,6 +142,14 @@ html.light {
 
 /* ─── Tailwind v4 theme registration ─── */
 @theme inline {
+  /* Breakpoints */
+  --breakpoint-xs: 480px;
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+
   --color-bg-void: var(--bg-void);
   --color-bg-base: var(--bg-base);
   --color-bg-surface: var(--bg-surface);
@@ -168,6 +194,10 @@ html.light {
   --shadow-lg: var(--shadow-lg);
   --shadow-brand: var(--shadow-brand);
   --shadow-glow: var(--shadow-glow);
+
+  --spacing-header: var(--header-height);
+  --spacing-bottom-nav: var(--bottom-nav-height);
+  --spacing-sidebar: var(--sidebar-width);
 }
 
 /* ─── Theme Transition ─── */

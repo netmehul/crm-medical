@@ -6,8 +6,8 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Users, CalendarDays, FileText, History,
-  UserCheck, Package, Settings, ChevronLeft, ChevronRight,
-  LogOut, Briefcase,
+  Package, Settings, ChevronLeft, ChevronRight, Briefcase,
+  Building2, CreditCard, UserCog, Sparkles, LogOut, FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -17,6 +17,8 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
+  moduleKey?: string; // plan_modules key — show only if planModules[moduleKey] is true
+  adminOnly?: boolean;
 }
 
 interface NavSection {
@@ -24,7 +26,7 @@ interface NavSection {
   items: NavItem[];
 }
 
-const navSections: NavSection[] = [
+const allNavSections: NavSection[] = [
   {
     title: "Overview",
     items: [
@@ -37,28 +39,49 @@ const navSections: NavSection[] = [
       { label: "Patients", href: "/patients", icon: <Users size={20} /> },
       { label: "Appointments", href: "/appointments", icon: <CalendarDays size={20} /> },
       { label: "Prescriptions", href: "/prescriptions", icon: <FileText size={20} /> },
-      { label: "History & Follow-ups", href: "/history", icon: <History size={20} /> },
+      { label: "Follow-ups", href: "/history", icon: <History size={20} /> },
     ],
   },
   {
     title: "Operations",
     items: [
-      { label: "Medical Reps", href: "/medical-reps", icon: <Briefcase size={20} /> },
-      { label: "Inventory", href: "/inventory", icon: <Package size={20} /> },
+      { label: "Medical Reps", href: "/medical-reps", icon: <Briefcase size={20} />, moduleKey: "mrManagement" },
+      { label: "Inventory", href: "/inventory", icon: <Package size={20} />, moduleKey: "inventory" },
+      { label: "External Labs", href: "/labs", icon: <FlaskConical size={20} />, moduleKey: "external_labs" },
     ],
   },
   {
-    title: "Settings",
+    title: "Management",
     items: [
-      { label: "User Management", href: "/settings", icon: <Settings size={20} /> },
+      { label: "Branches", href: "/branches", icon: <Building2 size={20} />, adminOnly: true },
+      { label: "Team", href: "/team", icon: <UserCog size={20} />, adminOnly: true },
+      { label: "Billing", href: "/billing", icon: <CreditCard size={20} /> },
+      { label: "Settings", href: "/settings", icon: <Settings size={20} /> },
     ],
   },
 ];
 
-export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+interface SidebarProps {
+  collapsed: boolean;
+  setCollapsed: (collapsed: boolean) => void;
+}
+
+export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, clinic, logout } = useAuth();
+
+  const plan = clinic?.plan || "free";
+  const planModules = clinic?.planModules || {};
+  const role = user?.role || "receptionist";
+
+  const navSections = allNavSections.map(section => ({
+    ...section,
+    items: section.items.filter(item => {
+      if (item.moduleKey && !planModules[item.moduleKey]) return false;
+      if (item.adminOnly && role !== "org_admin") return false;
+      return true;
+    }),
+  })).filter(section => section.items.length > 0);
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -157,6 +180,15 @@ export default function Sidebar() {
         {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
       </button>
 
+      {!collapsed && plan === "free" && (
+        <div className="mx-2 mb-2">
+          <Link href="/upgrade" className="flex items-center gap-2 px-3 py-2 rounded-lg bg-brand/10 text-brand text-sm font-medium hover:bg-brand/20 transition-colors">
+            <Sparkles size={16} />
+            Upgrade to Pro
+          </Link>
+        </div>
+      )}
+
       <div className="border-t border-border-subtle p-3 flex items-center gap-3 shrink-0">
         <Link href="/settings" className="shrink-0 hover:opacity-80" title="My Profile">
           <Avatar name={user?.name || "User"} size="sm" ringColor="var(--brand)" />
@@ -169,25 +201,16 @@ export default function Sidebar() {
               exit={{ opacity: 0, x: -10 }}
               className="flex-1 min-w-0"
             >
-              <Link href="/settings" className="block hover:text-text-brand">
-                <p className="text-sm font-medium text-text-primary truncate">{user?.name}</p>
-                <p className="text-xs text-text-muted capitalize">{user?.role}</p>
-              </Link>
+              <div className="flex items-center justify-between">
+                <Link href="/settings" className="block hover:text-text-brand min-w-0">
+                  <p className="text-sm font-medium text-text-primary truncate">{user?.name}</p>
+                  <p className="text-xs text-text-muted capitalize">{role === "org_admin" ? "Org Admin" : role}</p>
+                </Link>
+                <button onClick={logout} className="text-text-muted hover:text-danger shrink-0" title="Logout">
+                  <LogOut size={16} />
+                </button>
+              </div>
             </motion.div>
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={logout}
-              className="text-text-muted hover:text-danger shrink-0 cursor-pointer"
-              aria-label="Logout"
-            >
-              <LogOut size={16} />
-            </motion.button>
           )}
         </AnimatePresence>
       </div>

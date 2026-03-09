@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Search, Plus, Upload, Eye, Pencil, Trash2, Users } from "lucide-react";
-import Link from "next/link";
-import { mockPatients } from "@/lib/mock-data";
+import { Search, Plus, Upload, Pencil, Trash2, Users, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Patient } from "@/lib/types";
+import { patientsApi } from "@/lib/api";
 import Input from "@/components/ui/input";
 import Button from "@/components/ui/button";
 import Badge from "@/components/ui/badge";
@@ -29,7 +29,10 @@ const statusVariant: Record<string, "brand" | "warning" | "info" | "muted"> = {
 };
 
 export default function PatientsPage() {
-  const [patients, setPatients] = useState<Patient[]>(mockPatients);
+  const router = useRouter();
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterType>("All");
   const [sortField, setSortField] = useState<SortField>("name");
@@ -41,6 +44,24 @@ export default function PatientsPage() {
   const { addToast } = useToast();
 
   const filters: FilterType[] = ["All", "Active", "Follow-up Due", "New"];
+
+  const fetchPatients = useCallback(async () => {
+    try {
+      setError(null);
+      const result = await patientsApi.list({ page: 1, limit: 50 });
+      setPatients(result.items);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load patients";
+      setError(message);
+      addToast({ type: "error", title: "Error", message });
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => {
+    fetchPatients();
+  }, [fetchPatients]);
 
   const filtered = useMemo(() => {
     let list = patients;
@@ -60,11 +81,16 @@ export default function PatientsPage() {
     else { setSortField(field); setSortDir("asc"); }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteId) return;
-    setPatients((prev) => prev.filter((p) => p.id !== deleteId));
-    addToast({ type: "success", title: "Patient removed" });
-    setDeleteId(null);
+    try {
+      await patientsApi.delete(deleteId);
+      addToast({ type: "success", title: "Patient removed" });
+      setDeleteId(null);
+      await fetchPatients();
+    } catch (err) {
+      addToast({ type: "error", title: "Failed to delete patient", message: err instanceof Error ? err.message : undefined });
+    }
   };
 
   const handleImport = (imported: Patient[]) => {
@@ -72,15 +98,32 @@ export default function PatientsPage() {
     addToast({ type: "success", title: `${imported.length} patients imported` });
   };
 
-  const handleAddPatient = (patient: Patient) => {
-    setPatients((prev) => [...prev, patient]);
+  const handleAddPatient = async (data: { name: string; age: string; gender: string; phone: string; email: string; bloodGroup: string; address: string }) => {
+    await patientsApi.create({
+      full_name: data.name,
+      phone: data.phone,
+      gender: data.gender.toLowerCase(),
+      email: data.email || undefined,
+      address: data.address || undefined,
+      blood_group: data.bloodGroup || undefined,
+    });
     addToast({ type: "success", title: "Patient added successfully" });
+    await fetchPatients();
   };
 
-  const handleEditPatient = (updated: Patient) => {
-    setPatients((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+  const handleEditPatient = async (data: { name: string; age: string; gender: string; phone: string; email: string; bloodGroup: string; address: string }) => {
+    if (!editPatient) return;
+    await patientsApi.update(editPatient.id, {
+      full_name: data.name,
+      phone: data.phone,
+      gender: data.gender.toLowerCase(),
+      email: data.email || undefined,
+      address: data.address || undefined,
+      blood_group: data.bloodGroup || undefined,
+    });
     addToast({ type: "success", title: "Patient updated successfully" });
     setEditPatient(null);
+    await fetchPatients();
   };
 
   const SortArrow = ({ field }: { field: SortField }) => (
@@ -89,32 +132,53 @@ export default function PatientsPage() {
     </span>
   );
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="animate-spin text-brand" size={32} />
+      </div>
+    );
+  }
+
+  if (error && patients.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <p className="text-text-muted">{error}</p>
+        <Button size="sm" onClick={() => { setLoading(true); fetchPatients(); }}>Retry</Button>
+      </div>
+    );
+  }
+
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="font-display font-bold text-2xl text-text-primary">Patients</h1>
+          <h1 className="font-display font-bold text-2xl lg:text-3xl text-text-primary">Patients</h1>
           <p className="text-sm text-text-secondary mt-0.5">{patients.length} total patients</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" onClick={() => setImportOpen(true)} size="sm"><Upload size={16} /> Import</Button>
-          <Button onClick={() => setAddOpen(true)} size="sm"><Plus size={16} /> Add Patient</Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setAddOpen(true)} className="flex-1 md:flex-initial" size="md"><Plus size={18} /> Add Patient</Button>
+          <Button variant="ghost" onClick={() => setImportOpen(true)} size="md" className="px-3"><Upload size={18} className="md:mr-2" /> <span className="hidden md:inline">Import</span></Button>
         </div>
       </div>
 
       {/* Search + Filters */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="w-64">
-          <Input placeholder="Search patients..." value={search} onChange={(e) => setSearch(e.target.value)} icon={<Search size={16} />} />
+      <div className="flex flex-col md:flex-row md:items-center gap-3">
+        <div className="w-full md:w-80">
+          <Input
+            placeholder="Search patients..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            icon={<Search size={18} />}
+          />
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
           {filters.map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                filter === f ? "bg-brand/15 text-brand border border-border-brand" : "bg-bg-surface text-text-secondary border border-border-subtle hover:bg-bg-hover"
-              }`}
+              className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer border ${filter === f ? "bg-brand/15 text-brand border-brand/30" : "bg-bg-surface text-text-muted border-border-subtle hover:bg-bg-hover"
+                }`}
             >
               {f}
             </button>
@@ -122,77 +186,131 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Content Rendering */}
       {filtered.length === 0 ? (
-        <EmptyState icon={<Users size={32} />} title="No patients found" description="No patients match your search or filters. Add your first patient to get started." actionLabel="Add Patient" onAction={() => setAddOpen(true)} />
+        <EmptyState icon={<Users size={32} />} title="No patients found" description="No patients match your search or filters." actionLabel="Add Patient" onAction={() => setAddOpen(true)} />
       ) : (
-        <div className="glass-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border-subtle">
-                  {[
-                    { label: "Patient", field: "name" as SortField },
-                    { label: "Age", field: "age" as SortField },
-                    { label: "Phone", field: null },
-                    { label: "Last Visit", field: "lastVisit" as SortField },
-                    { label: "Doctor", field: null },
-                    { label: "Status", field: "status" as SortField },
-                    { label: "Actions", field: null },
-                  ].map((col) => (
-                    <th
-                      key={col.label}
-                      onClick={() => col.field && toggleSort(col.field)}
-                      className={`px-4 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wide ${col.field ? "cursor-pointer hover:text-text-primary select-none" : ""}`}
+        <>
+          {/* Desktop Table */}
+          <div className="hidden md:block glass-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border-subtle bg-bg-base/30">
+                    {[
+                      { label: "Patient", field: "name" as SortField },
+                      { label: "Age", field: "age" as SortField },
+                      { label: "Phone", field: null },
+                      { label: "Last Visit", field: "lastVisit" as SortField },
+                      { label: "Doctor", field: null },
+                      { label: "Status", field: "status" as SortField },
+                      { label: "", field: null },
+                    ].map((col) => (
+                      <th
+                        key={col.label}
+                        onClick={() => col.field && toggleSort(col.field)}
+                        className={`px-4 py-4 text-left text-[11px] font-bold text-text-muted uppercase tracking-wider ${col.field ? "cursor-pointer hover:text-text-primary select-none" : ""}`}
+                      >
+                        {col.label}
+                        {col.field && <SortArrow field={col.field} />}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-subtle/30">
+                  {filtered.map((p, i) => (
+                    <tr
+                      key={p.id}
+                      onClick={() => router.push(`/patients/${p.id}`)}
+                      className="hover:bg-bg-hover transition-colors group cursor-pointer"
                     >
-                      {col.label}
-                      {col.field && <SortArrow field={col.field} />}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p, i) => (
-                  <motion.tr
-                    key={p.id}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.03 }}
-                    className="border-b border-border-subtle/50 hover:bg-bg-hover transition-colors group"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <Avatar name={p.name} size="sm" />
-                        <div>
-                          <p className="text-sm font-medium text-text-primary">{p.name}</p>
-                          <p className="text-xs text-text-muted">{p.id}</p>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <Avatar name={p.name} size="sm" />
+                          <div>
+                            <p className="text-sm font-semibold text-text-primary">{p.name}</p>
+                            <p className="text-[10px] font-mono text-text-muted mt-0.5 tracking-tight">{p.id}</p>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-text-secondary">{p.age}</td>
-                    <td className="px-4 py-3 text-sm text-text-secondary font-mono">{p.phone}</td>
-                    <td className="px-4 py-3 text-sm text-text-secondary">{p.lastVisit ? formatDate(p.lastVisit) : "—"}</td>
-                    <td className="px-4 py-3 text-sm text-text-secondary">{p.doctor || "—"}</td>
-                    <td className="px-4 py-3"><Badge variant={statusVariant[p.status]}>{p.status}</Badge></td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Link href={`/patients/${p.id}`} className="p-1.5 rounded hover:bg-bg-elevated text-text-muted hover:text-brand transition-colors" title="View">
-                          <Eye size={15} />
-                        </Link>
-                        <button onClick={() => setEditPatient(p)} className="p-1.5 rounded hover:bg-bg-elevated text-text-muted hover:text-secondary transition-colors cursor-pointer" title="Edit">
-                          <Pencil size={15} />
-                        </button>
-                        <button onClick={() => setDeleteId(p.id)} className="p-1.5 rounded hover:bg-bg-elevated text-text-muted hover:text-danger transition-colors cursor-pointer" title="Delete">
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-text-secondary">{p.age}</td>
+                      <td className="px-4 py-4 text-sm text-text-secondary font-mono">{p.phone}</td>
+                      <td className="px-4 py-4 text-sm text-text-secondary">{p.lastVisit ? formatDate(p.lastVisit) : "—"}</td>
+                      <td className="px-4 py-4 text-sm text-text-secondary">{p.doctor || "—"}</td>
+                      <td className="px-4 py-4"><Badge variant={statusVariant[p.status]}>{p.status}</Badge></td>
+                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => setEditPatient(p)} className="p-2 rounded-lg hover:bg-bg-elevated text-text-muted hover:text-secondary cursor-pointer" title="Edit">
+                            <Pencil size={16} />
+                          </button>
+                          <button onClick={() => setDeleteId(p.id)} className="p-2 rounded-lg hover:bg-bg-elevated text-text-muted hover:text-danger cursor-pointer" title="Delete">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+
+          {/* Mobile Card List */}
+          <div className="md:hidden space-y-3">
+            {filtered.map((p) => (
+              <div
+                key={p.id}
+                onClick={() => router.push(`/patients/${p.id}`)}
+                className="glass-card p-4 active:scale-[0.98] transition-transform"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar name={p.name} size="md" />
+                    <div>
+                      <h3 className="font-semibold text-text-primary">{p.name}</h3>
+                      <p className="text-[11px] text-text-muted font-mono">{p.id}</p>
+                    </div>
+                  </div>
+                  <Badge variant={statusVariant[p.status]}>{p.status}</Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-y-2 text-xs border-t border-border-subtle pt-3 mt-3">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-text-muted uppercase tracking-wider font-bold text-[10px]">Age / Gender</span>
+                    <span className="text-text-secondary font-medium">{p.age}y • {p.gender}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-text-muted uppercase tracking-wider font-bold text-[10px]">Phone</span>
+                    <span className="text-text-secondary font-mono">{p.phone}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-text-muted uppercase tracking-wider font-bold text-[10px]">Last Visit</span>
+                    <span className="text-text-secondary font-medium">{p.lastVisit ? formatDate(p.lastVisit) : "—"}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-text-muted uppercase tracking-wider font-bold text-[10px]">Doctor</span>
+                    <span className="text-text-secondary font-medium truncate">{p.doctor || "—"}</span>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-border-subtle/50">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditPatient(p); }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-bg-elevated text-text-secondary font-medium text-sm active:bg-bg-hover"
+                  >
+                    <Pencil size={14} /> Edit
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setSortField("name"); /* Placeholder for more actions */ }}
+                    className="w-12 flex items-center justify-center rounded-xl bg-bg-elevated text-text-muted active:bg-bg-hover"
+                  >
+                    <Trash2 size={14} onClick={(e) => { e.stopPropagation(); setDeleteId(p.id); }} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Delete Patient" description="Are you sure you want to remove this patient? This action cannot be undone." />

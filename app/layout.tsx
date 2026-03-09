@@ -4,6 +4,7 @@ import { ThemeProvider } from "next-themes";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { ToastProvider } from "@/lib/toast-context";
+import { BreadcrumbProvider } from "@/lib/breadcrumb-context";
 import ToastContainer from "@/components/ui/toast-container";
 
 const bricolage = Bricolage_Grotesque({
@@ -44,8 +45,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           <AuthProvider>
             <ToastProvider>
-              {children}
-              <ToastContainer />
+              <BreadcrumbProvider>
+                {children}
+                <ToastContainer />
+              </BreadcrumbProvider>
             </ToastProvider>
           </AuthProvider>
         </ThemeProvider>

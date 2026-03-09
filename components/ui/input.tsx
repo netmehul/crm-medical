@@ -39,11 +39,12 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
             onBlur={(e) => { setFocused(false); props.onBlur?.(e); }}
             className={cn(
-              "w-full bg-bg-base border border-border-base rounded-lg px-3 py-2.5 text-sm text-text-primary font-sans",
+              "w-full bg-bg-base border border-border-base rounded-xl px-3 py-3 text-base md:text-sm text-text-primary font-sans transition-all",
               "placeholder:text-text-muted",
-              "focus:border-brand focus:shadow-[0_0_0_3px_var(--brand-dim)]",
-              icon ? "pl-10" : undefined,
-              error ? "border-danger focus:border-danger focus:shadow-[0_0_0_3px_var(--danger-dim)]" : undefined,
+              "focus:border-brand focus:ring-4 focus:ring-brand/10",
+              "min-h-[48px] md:min-h-[42px]",
+              icon ? "pl-11" : undefined,
+              error ? "border-danger focus:border-danger focus:ring-danger/10" : undefined,
               className
             )}
             {...props}

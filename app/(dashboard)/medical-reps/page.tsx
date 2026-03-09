@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Phone, Mail, Building, Clock, Package, ArrowLeft, Calendar } from "lucide-react";
-import { mockMedicalReps, mockMRVisits } from "@/lib/mock-data";
+import { Plus, Phone, Mail, Building, Clock, Package, ArrowLeft, Calendar, Trash2, Loader2 } from "lucide-react";
+import { medicalRepsApi } from "@/lib/api";
 import { MedicalRep, MRVisit } from "@/lib/types";
 import Button from "@/components/ui/button";
 import Badge from "@/components/ui/badge";
@@ -24,43 +24,125 @@ const purposeVariant: Record<string, "brand" | "info" | "warning" | "muted"> = {
   Other: "muted",
 };
 
+const purposeToApi: Record<string, string> = {
+  "Product Presentation": "product_presentation",
+  "Sample Drop": "sample_drop",
+  "Follow-up": "follow_up",
+  Other: "other",
+};
+
 export default function MedicalRepsPage() {
-  const [reps] = useState<MedicalRep[]>(mockMedicalReps);
-  const [visits, setVisits] = useState<MRVisit[]>(mockMRVisits);
+  const [reps, setReps] = useState<MedicalRep[]>([]);
+  const [visits, setVisits] = useState<MRVisit[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [visitsLoading, setVisitsLoading] = useState(false);
   const [view, setView] = useState<View>("list");
   const [selectedRep, setSelectedRep] = useState<MedicalRep | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [logVisitOpen, setLogVisitOpen] = useState(false);
   const [addRepOpen, setAddRepOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const { addToast } = useToast();
 
   const [visitForm, setVisitForm] = useState({ date: "", time: "", purpose: "Product Presentation", products: [] as string[], notes: "" });
+  const [repForm, setRepForm] = useState({ full_name: "", company: "", phone: "", email: "", territory: "", notes: "" });
+
+  const fetchReps = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await medicalRepsApi.list({ limit: 100 });
+      setReps(data.items);
+    } catch {
+      addToast({ type: "error", title: "Failed to load medical reps" });
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => {
+    fetchReps();
+  }, [fetchReps]);
+
+  const fetchVisits = useCallback(async (repId: string) => {
+    try {
+      setVisitsLoading(true);
+      const data = await medicalRepsApi.getVisits(repId);
+      setVisits(data.items);
+    } catch {
+      addToast({ type: "error", title: "Failed to load visits" });
+    } finally {
+      setVisitsLoading(false);
+    }
+  }, [addToast]);
 
   const openProfile = (rep: MedicalRep) => {
     setSelectedRep(rep);
     setActiveTab("overview");
     setView("profile");
+    fetchVisits(rep.id);
   };
 
-  const handleLogVisit = () => {
-    if (!selectedRep || !visitForm.date || !visitForm.time) return;
-    const newVisit: MRVisit = {
-      id: `MV${Date.now()}`,
-      repId: selectedRep.id,
-      repName: selectedRep.name,
-      date: visitForm.date,
-      time: visitForm.time,
-      purpose: visitForm.purpose as MRVisit["purpose"],
-      products: visitForm.products,
-      notes: visitForm.notes,
-    };
-    setVisits((prev) => [newVisit, ...prev]);
-    addToast({ type: "success", title: "Visit logged successfully" });
-    setVisitForm({ date: "", time: "", purpose: "Product Presentation", products: [], notes: "" });
-    setLogVisitOpen(false);
+  const handleAddRep = async () => {
+    if (!repForm.full_name.trim()) return;
+    try {
+      setSubmitting(true);
+      await medicalRepsApi.create({
+        full_name: repForm.full_name,
+        company: repForm.company || undefined,
+        phone: repForm.phone || undefined,
+        email: repForm.email || undefined,
+        territory: repForm.territory || undefined,
+        notes: repForm.notes || undefined,
+      });
+      addToast({ type: "success", title: "MR added successfully" });
+      setRepForm({ full_name: "", company: "", phone: "", email: "", territory: "", notes: "" });
+      setAddRepOpen(false);
+      await fetchReps();
+    } catch {
+      addToast({ type: "error", title: "Failed to add medical rep" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const repVisits = selectedRep ? visits.filter((v) => v.repId === selectedRep.id) : [];
+  const handleLogVisit = async () => {
+    if (!selectedRep || !visitForm.date) return;
+    try {
+      setSubmitting(true);
+      await medicalRepsApi.logVisit(selectedRep.id, {
+        visit_date: visitForm.date,
+        purpose: purposeToApi[visitForm.purpose] || "other",
+        products_discussed: visitForm.products.join(", ") || undefined,
+        notes: visitForm.notes || undefined,
+      });
+      addToast({ type: "success", title: "Visit logged successfully" });
+      setVisitForm({ date: "", time: "", purpose: "Product Presentation", products: [], notes: "" });
+      setLogVisitOpen(false);
+      await fetchVisits(selectedRep.id);
+    } catch {
+      addToast({ type: "error", title: "Failed to log visit" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteRep = async (id: string) => {
+    try {
+      setSubmitting(true);
+      await medicalRepsApi.delete(id);
+      addToast({ type: "success", title: "Medical rep deleted" });
+      setDeleteConfirmId(null);
+      if (view === "profile") setView("list");
+      await fetchReps();
+    } catch {
+      addToast({ type: "error", title: "Failed to delete medical rep" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const repVisits = visits;
   const tabs: { key: Tab; label: string }[] = [
     { key: "overview", label: "Overview" },
     { key: "visits", label: "Visit History" },
@@ -85,7 +167,10 @@ export default function MedicalRepsPage() {
                 {selectedRep.email && <span className="flex items-center gap-1.5 text-xs text-text-muted"><Mail size={13} /> {selectedRep.email}</span>}
               </div>
             </div>
-            <Button size="sm" onClick={() => setLogVisitOpen(true)}><Calendar size={16} /> Log Visit</Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setDeleteConfirmId(selectedRep.id)}><Trash2 size={16} /></Button>
+              <Button size="sm" onClick={() => setLogVisitOpen(true)}><Calendar size={16} /> Log Visit</Button>
+            </div>
           </div>
         </div>
 
@@ -112,7 +197,7 @@ export default function MedicalRepsPage() {
             </div>
             <div className="glass-card p-5">
               <p className="text-xs text-text-muted uppercase mb-1">Total Visits</p>
-              <p className="text-2xl font-mono text-brand">{repVisits.length}</p>
+              <p className="text-2xl font-mono text-brand">{visitsLoading ? "…" : repVisits.length}</p>
             </div>
             <div className="glass-card p-5">
               <p className="text-xs text-text-muted uppercase mb-1">Products</p>
@@ -123,28 +208,36 @@ export default function MedicalRepsPage() {
 
         {activeTab === "visits" && (
           <div className="glass-card overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border-subtle">
-                  {["Date", "Time", "Purpose", "Products", "Notes", "Duration"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-text-muted uppercase">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {repVisits.map((v) => (
-                  <tr key={v.id} className="border-b border-border-subtle/50 hover:bg-bg-hover transition-colors">
-                    <td className="px-4 py-3 text-sm text-text-primary">{formatDate(v.date)}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-text-secondary">{formatTime(v.time)}</td>
-                    <td className="px-4 py-3"><Badge variant={purposeVariant[v.purpose]}>{v.purpose}</Badge></td>
-                    <td className="px-4 py-3 text-sm text-text-secondary">{v.products.join(", ") || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-text-muted max-w-[200px] truncate">{v.notes || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-text-muted">{v.duration || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {repVisits.length === 0 && <div className="py-8 text-center text-sm text-text-muted">No visits logged yet</div>}
+            {visitsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 size={24} className="animate-spin text-brand" />
+              </div>
+            ) : (
+              <>
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border-subtle">
+                      {["Date", "Time", "Purpose", "Products", "Notes", "Duration"].map((h) => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-text-muted uppercase">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {repVisits.map((v) => (
+                      <tr key={v.id} className="border-b border-border-subtle/50 hover:bg-bg-hover transition-colors">
+                        <td className="px-4 py-3 text-sm text-text-primary">{formatDate(v.date)}</td>
+                        <td className="px-4 py-3 text-sm font-mono text-text-secondary">{formatTime(v.time)}</td>
+                        <td className="px-4 py-3"><Badge variant={purposeVariant[v.purpose]}>{v.purpose}</Badge></td>
+                        <td className="px-4 py-3 text-sm text-text-secondary">{v.products.join(", ") || "—"}</td>
+                        <td className="px-4 py-3 text-sm text-text-muted max-w-[200px] truncate">{v.notes || "—"}</td>
+                        <td className="px-4 py-3 text-sm text-text-muted">{v.duration || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {repVisits.length === 0 && <div className="py-8 text-center text-sm text-text-muted">No visits logged yet</div>}
+              </>
+            )}
           </div>
         )}
 
@@ -215,7 +308,22 @@ export default function MedicalRepsPage() {
             </div>
             <div className="flex gap-3">
               <Button variant="ghost" onClick={() => setLogVisitOpen(false)}>Cancel</Button>
-              <Button onClick={handleLogVisit}>Log Visit</Button>
+              <Button onClick={handleLogVisit} disabled={submitting}>
+                {submitting ? <><Loader2 size={16} className="animate-spin" /> Logging...</> : "Log Visit"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal isOpen={!!deleteConfirmId} onClose={() => setDeleteConfirmId(null)} title="Delete Medical Rep" size="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">Are you sure you want to delete this medical representative? This action cannot be undone.</p>
+            <div className="flex gap-3">
+              <Button variant="ghost" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+              <Button variant="danger" onClick={() => deleteConfirmId && handleDeleteRep(deleteConfirmId)} disabled={submitting}>
+                {submitting ? <><Loader2 size={16} className="animate-spin" /> Deleting...</> : "Delete"}
+              </Button>
             </div>
           </div>
         </Modal>
@@ -233,7 +341,11 @@ export default function MedicalRepsPage() {
         <Button onClick={() => setAddRepOpen(true)} size="sm"><Plus size={16} /> Add MR</Button>
       </div>
 
-      {reps.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 size={32} className="animate-spin text-brand" />
+        </div>
+      ) : reps.length === 0 ? (
         <EmptyState icon={<Building size={32} />} title="No medical reps" description="Add your first medical representative to track visits and products." actionLabel="Add MR" onAction={() => setAddRepOpen(true)} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -243,7 +355,7 @@ export default function MedicalRepsPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="glass-card p-5 hover:border-border-brand transition-all cursor-pointer"
+              className="glass-card p-5 hover:border-border-brand transition-all cursor-pointer group"
               onClick={() => openProfile(rep)}
             >
               <div className="flex items-center gap-3 mb-3">
@@ -252,6 +364,12 @@ export default function MedicalRepsPage() {
                   <p className="text-sm font-medium text-text-primary">{rep.name}</p>
                   <p className="text-xs text-text-muted">{rep.company}</p>
                 </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(rep.id); }}
+                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-bg-hover text-text-muted hover:text-red-400 transition-all cursor-pointer"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
               <div className="flex items-center gap-4 text-xs text-text-muted mb-3">
                 <span className="flex items-center gap-1"><Phone size={12} /> {rep.phone}</span>
@@ -270,15 +388,40 @@ export default function MedicalRepsPage() {
       {/* Add MR Modal */}
       <Modal isOpen={addRepOpen} onClose={() => setAddRepOpen(false)} title="Add Medical Representative" size="md">
         <div className="space-y-4">
-          <Input label="Full Name" placeholder="Representative name" />
-          <Input label="Company" placeholder="Pharmaceutical company" />
+          <Input label="Full Name" placeholder="Representative name" value={repForm.full_name} onChange={(e) => setRepForm((f) => ({ ...f, full_name: e.target.value }))} />
+          <Input label="Company" placeholder="Pharmaceutical company" value={repForm.company} onChange={(e) => setRepForm((f) => ({ ...f, company: e.target.value }))} />
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Phone" placeholder="+91 99887 76655" />
-            <Input label="Email" type="email" placeholder="email@company.com" />
+            <Input label="Phone" placeholder="+91 99887 76655" value={repForm.phone} onChange={(e) => setRepForm((f) => ({ ...f, phone: e.target.value }))} />
+            <Input label="Email" type="email" placeholder="email@company.com" value={repForm.email} onChange={(e) => setRepForm((f) => ({ ...f, email: e.target.value }))} />
+          </div>
+          <Input label="Territory" placeholder="Region or territory" value={repForm.territory} onChange={(e) => setRepForm((f) => ({ ...f, territory: e.target.value }))} />
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">Notes</label>
+            <textarea
+              value={repForm.notes}
+              onChange={(e) => setRepForm((f) => ({ ...f, notes: e.target.value }))}
+              className="w-full bg-bg-surface border border-border-subtle rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none h-20 focus:border-brand focus:shadow-[0_0_0_3px_rgba(11,179,122,0.15)]"
+              placeholder="Additional notes..."
+            />
           </div>
           <div className="flex gap-3 pt-2">
             <Button variant="ghost" onClick={() => setAddRepOpen(false)}>Cancel</Button>
-            <Button onClick={() => { addToast({ type: "success", title: "MR added successfully" }); setAddRepOpen(false); }}>Add Representative</Button>
+            <Button onClick={handleAddRep} disabled={submitting}>
+              {submitting ? <><Loader2 size={16} className="animate-spin" /> Adding...</> : "Add Representative"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={!!deleteConfirmId} onClose={() => setDeleteConfirmId(null)} title="Delete Medical Rep" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-text-secondary">Are you sure you want to delete this medical representative? This action cannot be undone.</p>
+          <div className="flex gap-3">
+            <Button variant="ghost" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+            <Button variant="danger" onClick={() => deleteConfirmId && handleDeleteRep(deleteConfirmId)} disabled={submitting}>
+              {submitting ? <><Loader2 size={16} className="animate-spin" /> Deleting...</> : "Delete"}
+            </Button>
           </div>
         </div>
       </Modal>

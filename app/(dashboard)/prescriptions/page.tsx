@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Search, FileText, Printer, Eye, X, Pill } from "lucide-react";
-import { mockPrescriptions, mockPatients } from "@/lib/mock-data";
-import { Prescription, Medication } from "@/lib/types";
+import { Plus, Search, FileText, Printer, X, Pill, Loader2 } from "lucide-react";
+import { prescriptionsApi, patientsApi } from "@/lib/api";
+import { Prescription, Medication, Patient } from "@/lib/types";
 import Button from "@/components/ui/button";
 import Badge from "@/components/ui/badge";
 import Input from "@/components/ui/input";
@@ -15,17 +15,59 @@ import { formatDate } from "@/lib/utils";
 import { useToast } from "@/lib/toast-context";
 
 export default function PrescriptionsPage() {
-  const [prescriptions, setPrescriptions] = useState<Prescription[]>(mockPrescriptions);
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [viewRx, setViewRx] = useState<Prescription | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
   const { addToast } = useToast();
 
-  // Create form state
+  // Patient search state
+  const [patientResults, setPatientResults] = useState<Patient[]>([]);
+  const [patientSearchLoading, setPatientSearchLoading] = useState(false);
+
   const [rxForm, setRxForm] = useState({
     patientId: "", patientSearch: "", diagnosis: "", notes: "",
     medications: [{ id: "1", drugName: "", dosage: "", frequency: "", duration: "", notes: "" }] as Medication[],
   });
+
+  const fetchPrescriptions = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await prescriptionsApi.list({ limit: 100 });
+      setPrescriptions(data.items);
+    } catch {
+      addToast({ type: "error", title: "Failed to load prescriptions" });
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => {
+    fetchPrescriptions();
+  }, [fetchPrescriptions]);
+
+  // Debounced patient search
+  useEffect(() => {
+    if (!createOpen) return;
+
+    const term = rxForm.patientSearch.trim();
+    const timer = setTimeout(async () => {
+      try {
+        setPatientSearchLoading(true);
+        const data = await patientsApi.list({ search: term || undefined, limit: 5 });
+        setPatientResults(data.items);
+      } catch {
+        setPatientResults([]);
+      } finally {
+        setPatientSearchLoading(false);
+      }
+    }, term ? 300 : 0);
+
+    return () => clearTimeout(timer);
+  }, [rxForm.patientSearch, createOpen]);
 
   const filtered = prescriptions.filter((p) =>
     p.patientName.toLowerCase().includes(search.toLowerCase()) ||
@@ -50,31 +92,51 @@ export default function PrescriptionsPage() {
     }));
   };
 
-  const handleCreate = (status: "Draft" | "Finalized") => {
-    const patient = mockPatients.find((p) => p.id === rxForm.patientId);
-    if (!patient) return;
+  const handleCreate = async (status: "Draft" | "Finalized") => {
+    if (!rxForm.patientId) return;
 
-    const newRx: Prescription = {
-      id: `RX${Date.now()}`,
-      patientId: patient.id,
-      patientName: patient.name,
-      doctorName: "Dr. Sharma",
-      date: new Date().toISOString().split("T")[0],
-      diagnosis: rxForm.diagnosis,
-      medications: rxForm.medications.filter((m) => m.drugName),
-      notes: rxForm.notes,
-      status,
-    };
-    setPrescriptions((prev) => [newRx, ...prev]);
-    addToast({ type: "success", title: `Prescription ${status === "Draft" ? "saved as draft" : "finalized"}` });
-    setRxForm({ patientId: "", patientSearch: "", diagnosis: "", notes: "", medications: [{ id: "1", drugName: "", dosage: "", frequency: "", duration: "", notes: "" }] });
-    setCreateOpen(false);
+    try {
+      setCreating(true);
+      await prescriptionsApi.create({
+        patient_id: rxForm.patientId,
+        diagnosis: rxForm.diagnosis,
+        notes: rxForm.notes,
+        prescription_date: new Date().toISOString().split("T")[0],
+        medications: rxForm.medications
+          .filter((m) => m.drugName)
+          .map((m) => ({
+            medicine_name: m.drugName,
+            dosage: m.dosage,
+            frequency: m.frequency,
+            duration: m.duration,
+            instructions: m.notes,
+          })),
+      });
+      addToast({ type: "success", title: `Prescription ${status === "Draft" ? "saved as draft" : "finalized"}` });
+      setRxForm({ patientId: "", patientSearch: "", diagnosis: "", notes: "", medications: [{ id: "1", drugName: "", dosage: "", frequency: "", duration: "", notes: "" }] });
+      setCreateOpen(false);
+      await fetchPrescriptions();
+    } catch {
+      addToast({ type: "error", title: "Failed to create prescription" });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleView = async (rx: Prescription) => {
+    try {
+      setViewLoading(true);
+      setViewRx(rx);
+      const full = await prescriptionsApi.get(rx.id);
+      setViewRx(full);
+    } catch {
+      addToast({ type: "error", title: "Failed to load prescription details" });
+    } finally {
+      setViewLoading(false);
+    }
   };
 
   const [patientDropdown, setPatientDropdown] = useState(false);
-  const filteredPatients = rxForm.patientSearch
-    ? mockPatients.filter((p) => p.name.toLowerCase().includes(rxForm.patientSearch.toLowerCase())).slice(0, 5)
-    : mockPatients.slice(0, 4);
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-5">
@@ -91,7 +153,11 @@ export default function PrescriptionsPage() {
       </div>
 
       {/* Card Grid */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 size={28} className="animate-spin text-brand" />
+        </div>
+      ) : filtered.length === 0 ? (
         <EmptyState icon={<FileText size={32} />} title="No prescriptions" description="No prescriptions found. Create one to get started." actionLabel="New Prescription" onAction={() => setCreateOpen(true)} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -101,7 +167,8 @@ export default function PrescriptionsPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
-              className="glass-card p-5 hover:border-border-brand transition-all"
+              onClick={() => handleView(rx)}
+              className="glass-card p-5 hover:border-border-brand transition-all cursor-pointer"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -115,9 +182,6 @@ export default function PrescriptionsPage() {
               </div>
               <p className="text-xs text-text-secondary mb-2">{rx.diagnosis}</p>
               <p className="text-xs text-text-muted">{rx.medications.length} medication{rx.medications.length !== 1 ? "s" : ""} • {rx.doctorName}</p>
-              <div className="flex gap-2 mt-3">
-                <Button size="sm" variant="ghost" onClick={() => setViewRx(rx)}><Eye size={14} /> View</Button>
-              </div>
             </motion.div>
           ))}
         </div>
@@ -132,13 +196,13 @@ export default function PrescriptionsPage() {
               label="Patient"
               placeholder="Search patient..."
               value={rxForm.patientSearch}
-              onChange={(e) => { setRxForm((f) => ({ ...f, patientSearch: e.target.value })); setPatientDropdown(true); }}
+              onChange={(e) => { setRxForm((f) => ({ ...f, patientSearch: e.target.value, patientId: "" })); setPatientDropdown(true); }}
               onFocus={() => setPatientDropdown(true)}
             />
             {!rxForm.patientId && (
               <div className="mt-2 flex gap-2 flex-wrap">
-                <span className="text-xs text-text-muted">Recent:</span>
-                {mockPatients.slice(0, 4).map((p) => (
+                <span className="text-xs text-text-muted">{patientSearchLoading ? "Searching..." : "Recent:"}</span>
+                {patientResults.slice(0, 4).map((p) => (
                   <button
                     key={p.id}
                     onClick={() => { setRxForm((f) => ({ ...f, patientId: p.id, patientSearch: p.name })); setPatientDropdown(false); }}
@@ -149,9 +213,9 @@ export default function PrescriptionsPage() {
                 ))}
               </div>
             )}
-            {patientDropdown && filteredPatients.length > 0 && !rxForm.patientId && (
+            {patientDropdown && patientResults.length > 0 && !rxForm.patientId && (
               <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-bg-elevated border border-border-subtle rounded-lg overflow-hidden shadow-xl max-h-40 overflow-y-auto">
-                {filteredPatients.map((p) => (
+                {patientResults.map((p) => (
                   <button key={p.id} onClick={() => { setRxForm((f) => ({ ...f, patientId: p.id, patientSearch: p.name })); setPatientDropdown(false); }} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-bg-hover text-left text-sm text-text-primary cursor-pointer">
                     <Avatar name={p.name} size="sm" /> {p.name}
                   </button>
@@ -200,8 +264,12 @@ export default function PrescriptionsPage() {
           </div>
 
           <div className="flex gap-3">
-            <Button variant="ghost" onClick={() => handleCreate("Draft")}>Save Draft</Button>
-            <Button onClick={() => handleCreate("Finalized")}>Finalize Prescription</Button>
+            <Button variant="ghost" onClick={() => handleCreate("Draft")} disabled={creating}>
+              {creating ? <Loader2 size={16} className="animate-spin" /> : null} Save Draft
+            </Button>
+            <Button onClick={() => handleCreate("Finalized")} disabled={creating}>
+              {creating ? <Loader2 size={16} className="animate-spin" /> : null} Finalize Prescription
+            </Button>
           </div>
         </div>
       </Modal>
@@ -245,27 +313,33 @@ export default function PrescriptionsPage() {
             {/* Medications table */}
             <div>
               <h4 className="text-xs font-semibold text-text-muted uppercase mb-2 flex items-center gap-1.5"><Pill size={14} /> Medications</h4>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border-subtle">
-                    {["#", "Drug Name", "Dosage", "Frequency", "Duration", "Notes"].map((h) => (
-                      <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-text-muted">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {viewRx.medications.map((m, i) => (
-                    <tr key={m.id} className="border-b border-border-subtle/50">
-                      <td className="px-3 py-2 text-text-muted">{i + 1}</td>
-                      <td className="px-3 py-2 text-text-primary font-medium">{m.drugName}</td>
-                      <td className="px-3 py-2 text-text-secondary">{m.dosage}</td>
-                      <td className="px-3 py-2 text-text-secondary">{m.frequency}</td>
-                      <td className="px-3 py-2 text-text-secondary">{m.duration}</td>
-                      <td className="px-3 py-2 text-text-muted">{m.notes || "—"}</td>
+              {viewLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 size={20} className="animate-spin text-brand" />
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border-subtle">
+                      {["#", "Drug Name", "Dosage", "Frequency", "Duration", "Notes"].map((h) => (
+                        <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-text-muted">{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {viewRx.medications.map((m, i) => (
+                      <tr key={m.id} className="border-b border-border-subtle/50">
+                        <td className="px-3 py-2 text-text-muted">{i + 1}</td>
+                        <td className="px-3 py-2 text-text-primary font-medium">{m.drugName}</td>
+                        <td className="px-3 py-2 text-text-secondary">{m.dosage}</td>
+                        <td className="px-3 py-2 text-text-secondary">{m.frequency}</td>
+                        <td className="px-3 py-2 text-text-secondary">{m.duration}</td>
+                        <td className="px-3 py-2 text-text-muted">{m.notes || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             {viewRx.notes && (

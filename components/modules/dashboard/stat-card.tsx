@@ -40,15 +40,15 @@ export default function StatCard({ label, value, icon, color, sparklineData, del
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.3, ease: "easeOut" }}
-      className="glass-card glass-card-hover p-5 relative overflow-hidden group cursor-default"
+      className="glass-card glass-card-hover p-4 md:p-5 relative overflow-hidden group cursor-default"
     >
-      <div className="flex items-start justify-between mb-3">
-        <p className="text-xs font-medium text-text-secondary uppercase tracking-wide">{label}</p>
+      <div className="flex items-start justify-between mb-2 md:mb-3">
+        <p className="text-[10px] md:text-xs font-bold text-text-secondary uppercase tracking-wider">{label}</p>
         <span style={{ color }} className="opacity-70 group-hover:opacity-100 transition-opacity">
           {icon}
         </span>
       </div>
-      <p className="text-3xl font-mono font-medium tabular-nums" style={{ color }}>
+      <p className="text-2xl md:text-3xl font-mono font-bold tabular-nums" style={{ color }}>
         {count}
       </p>
       <div className="absolute bottom-0 right-0 w-24 h-12 opacity-40">

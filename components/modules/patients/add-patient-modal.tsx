@@ -6,15 +6,25 @@ import Input from "@/components/ui/input";
 import Button from "@/components/ui/button";
 import { Patient } from "@/lib/types";
 
+interface PatientFormData {
+  name: string;
+  age: string;
+  gender: string;
+  phone: string;
+  email: string;
+  bloodGroup: string;
+  address: string;
+}
+
 interface AddPatientModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (patient: Patient) => void;
+  onAdd: (data: PatientFormData) => Promise<void>;
   editData?: Patient | null;
 }
 
 export default function AddPatientModal({ isOpen, onClose, onAdd, editData }: AddPatientModalProps) {
-  const [form, setForm] = useState({ name: "", age: "", gender: "Male", phone: "", email: "", bloodGroup: "", address: "" });
+  const [form, setForm] = useState<PatientFormData>({ name: "", age: "", gender: "Male", phone: "", email: "", bloodGroup: "", address: "" });
   const [loading, setLoading] = useState(false);
 
   const isEdit = !!editData;
@@ -38,26 +48,15 @@ export default function AddPatientModal({ isOpen, onClose, onAdd, editData }: Ad
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 500));
-
-    const patient: Patient = {
-      id: editData?.id || `P${Date.now()}`,
-      name: form.name,
-      age: parseInt(form.age) || 0,
-      gender: form.gender as Patient["gender"],
-      phone: form.phone,
-      email: form.email || undefined,
-      bloodGroup: form.bloodGroup || undefined,
-      address: form.address || undefined,
-      status: editData?.status || "New",
-      createdAt: editData?.createdAt || new Date().toISOString().split("T")[0],
-      lastVisit: editData?.lastVisit,
-      doctor: editData?.doctor,
-    };
-    onAdd(patient);
-    setForm({ name: "", age: "", gender: "Male", phone: "", email: "", bloodGroup: "", address: "" });
-    setLoading(false);
-    onClose();
+    try {
+      await onAdd(form);
+      setForm({ name: "", age: "", gender: "Male", phone: "", email: "", bloodGroup: "", address: "" });
+      onClose();
+    } catch {
+      // parent handles error toasts
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
