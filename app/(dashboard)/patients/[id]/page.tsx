@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import {
   Phone, Mail, MapPin, Droplets, CalendarPlus, FileText, ArrowLeft, Calendar, Clock, Pill, Loader2,
   FlaskConical, Send, MessageCircle, Printer, Plus, X, AlertTriangle, CheckCircle2, Package, ExternalLink,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
@@ -263,50 +264,78 @@ export default function PatientProfilePage() {
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-6 max-w-full overflow-x-hidden"
+    >
       {/* Back */}
-      <Link href="/patients" className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors">
-        <ArrowLeft size={16} /> Back to Patients
-      </Link>
+      <div className="px-1">
+        <Link href="/patients" className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors">
+          <ArrowLeft size={16} /> Back to Patients
+        </Link>
+      </div>
 
-      {/* Header */}
-      <div className="glass-card p-4 md:p-6 overflow-hidden">
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-5">
-          <div className="relative">
+      {/* Header Card */}
+      <div className="glass-card p-4 md:p-6 overflow-hidden w-full">
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-5 w-full">
+          <div className="relative shrink-0">
             <Avatar name={patient.name} size="xl" className="md:size-lg" />
             <div className="absolute -bottom-1 -right-1 md:hidden">
               <Badge variant={patient.status === "Active" ? "brand" : patient.status === "Follow-up Due" ? "warning" : "info"}>{patient.status}</Badge>
             </div>
           </div>
 
-          <div className="flex-1 min-w-0 text-center md:text-left">
-            <div className="flex flex-col md:flex-row md:items-center gap-2 mb-2">
+          <div className="flex-1 min-w-0 w-full text-center md:text-left">
+            <div className="flex flex-col md:flex-row md:items-center justify-center md:justify-start gap-2 mb-2">
               <h1 className="font-display font-bold text-2xl md:text-3xl text-text-primary truncate">{patient.name}</h1>
               <div className="hidden md:block">
                 <Badge variant={patient.status === "Active" ? "brand" : patient.status === "Follow-up Due" ? "warning" : "info"}>{patient.status}</Badge>
               </div>
             </div>
-            <p className="text-sm text-text-secondary font-medium outline-none">
+            <p className="text-sm text-text-secondary font-medium truncate">
               {patient.age}y • {patient.gender} • <span className="text-text-muted font-mono bg-bg-surface px-2 py-0.5 rounded border border-border-subtle">{patient.patientCode || patient.id.slice(0, 8)}</span>
             </p>
 
-            <div className="flex items-center justify-center md:justify-start gap-4 mt-4 overflow-x-auto no-scrollbar pb-1">
+            <div className="flex items-center justify-center md:justify-start gap-4 mt-4 overflow-x-auto no-scrollbar pb-1 w-full">
               <span className="flex items-center gap-1.5 text-xs text-text-muted whitespace-nowrap"><Phone size={13} className="text-brand" /> {patient.phone}</span>
               {patient.email && <span className="flex items-center gap-1.5 text-xs text-text-muted whitespace-nowrap"><Mail size={13} className="text-brand" /> {patient.email}</span>}
               {patient.bloodGroup && <span className="flex items-center gap-1.5 text-xs text-text-muted whitespace-nowrap"><Droplets size={13} className="text-brand" /> {patient.bloodGroup}</span>}
             </div>
           </div>
 
-          <div className="flex flex-row md:flex-col gap-2 w-full md:w-auto">
+          <div className="flex flex-row md:flex-col gap-2 w-full md:w-auto shrink-0">
             <Button className="flex-1" size="md" onClick={() => router.push(`/appointments/book?patientId=${id}`)}><CalendarPlus size={18} /> <span className="hidden sm:inline">Book</span></Button>
             <Button className="flex-1" variant="ghost" size="md" onClick={handleAddNote}><FileText size={18} /> <span className="hidden sm:inline">Note</span></Button>
           </div>
         </div>
       </div>
 
-      {/* Tabs - Horizontally scrollable pills on mobile */}
-      <div className="sticky top-0 z-10 -mx-4 px-4 bg-bg-base/80 backdrop-blur-md border-b border-border-subtle">
-        <div className="flex overflow-x-auto no-scrollbar gap-1 py-1">
+      {/* Tabs Section */}
+      <div className="sticky top-0 z-20 bg-bg-base/80 backdrop-blur-md border-b border-border-subtle py-2">
+        {/* Mobile Dropdown (on lg) to ensure it fits better on tablets too */}
+        <div className="lg:hidden">
+          <div className="relative group">
+            <select
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value as Tab)}
+              className="w-full bg-bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm font-bold text-text-primary appearance-none focus:outline-none focus:ring-2 focus:ring-brand/30 transition-all cursor-pointer shadow-sm"
+            >
+              {tabs.map((tab) => (
+                <option key={tab.key} value={tab.key}>
+                  {tab.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted group-focus-within:text-brand transition-colors">
+              <ChevronDown size={18} />
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Tabs (only on lg now) */}
+        <div className="hidden lg:flex overflow-x-auto no-scrollbar gap-1">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
             return (

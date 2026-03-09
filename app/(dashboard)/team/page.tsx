@@ -7,6 +7,7 @@ import {
   Users, UserPlus, Shield, Search, Loader2,
   Building2, Mail, CheckCircle, XCircle,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 import { orgApi, type TeamMember, type OrgBranch } from "@/lib/api";
 import Button from "@/components/ui/button";
 import Input from "@/components/ui/input";
@@ -22,10 +23,19 @@ const roleVariant = (role: string): "brand" | "info" =>
   role === "org_admin" ? "brand" : "info";
 
 export default function TeamPage() {
+  const { user } = useAuth();
   const router = useRouter();
   const { addToast } = useToast();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isOrgAdmin = user?.role === "org_admin";
+
+  useEffect(() => {
+    if (user && !isOrgAdmin) {
+      router.push("/dashboard");
+    }
+  }, [isOrgAdmin, user, router]);
   const [search, setSearch] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
 
@@ -262,9 +272,8 @@ export default function TeamPage() {
                 {branches.map((b) => (
                   <label
                     key={b.id}
-                    className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                      invBranches.includes(b.id) ? "border-brand bg-brand/5" : "border-border-subtle bg-bg-surface hover:bg-bg-hover"
-                    }`}
+                    className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${invBranches.includes(b.id) ? "border-brand bg-brand/5" : "border-border-subtle bg-bg-surface hover:bg-bg-hover"
+                      }`}
                   >
                     <input
                       type="checkbox"
@@ -272,9 +281,8 @@ export default function TeamPage() {
                       onChange={() => toggleBranch(b.id)}
                       className="sr-only"
                     />
-                    <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                      invBranches.includes(b.id) ? "bg-brand border-brand" : "border-border-subtle"
-                    }`}>
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${invBranches.includes(b.id) ? "bg-brand border-brand" : "border-border-subtle"
+                      }`}>
                       {invBranches.includes(b.id) && <CheckCircle size={12} className="text-white" />}
                     </div>
                     <div>

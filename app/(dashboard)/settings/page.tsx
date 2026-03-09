@@ -39,9 +39,8 @@ export default function SettingsPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                activeTab === tab.key ? "bg-brand/10 text-brand" : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
-              }`}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${activeTab === tab.key ? "bg-brand/10 text-brand" : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+                }`}
             >
               {tab.icon} {tab.label}
             </button>
@@ -99,19 +98,11 @@ export default function SettingsPage() {
             <div className="glass-card p-6 space-y-4">
               <h2 className="font-display font-semibold text-base text-text-primary">Appearance</h2>
               <div className="p-3 rounded-lg bg-bg-surface border border-border-subtle">
-                <p className="text-sm text-text-primary mb-2">Theme</p>
+                <p className="text-sm text-text-primary mb-2">Display Settings</p>
                 <div className="flex gap-2">
-                  {["Light (Default)", "Dark", "System"].map((t, i) => (
-                    <button
-                      key={t}
-                      onClick={() => { setSelectedTheme(i); addToast({ type: "success", title: `Theme set to ${t}` }); }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                        selectedTheme === i ? "bg-brand/15 text-brand border border-border-brand" : "bg-bg-elevated text-text-secondary border border-border-subtle hover:bg-bg-hover"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
+                  <div className="px-3 py-1.5 rounded-lg text-xs font-medium bg-brand/15 text-brand border border-border-brand">
+                    Light Mode (Locked)
+                  </div>
                 </div>
               </div>
               <div className="p-3 rounded-lg bg-bg-surface border border-border-subtle">
@@ -121,9 +112,8 @@ export default function SettingsPage() {
                     <button
                       key={t}
                       onClick={() => { setSelectedSidebar(i); addToast({ type: "success", title: `Sidebar set to ${t}` }); }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                        selectedSidebar === i ? "bg-brand/15 text-brand border border-border-brand" : "bg-bg-elevated text-text-secondary border border-border-subtle hover:bg-bg-hover"
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${selectedSidebar === i ? "bg-brand/15 text-brand border border-border-brand" : "bg-bg-elevated text-text-secondary border border-border-subtle hover:bg-bg-hover"
+                        }`}
                     >
                       {t}
                     </button>

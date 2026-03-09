@@ -16,7 +16,7 @@ function formatPrice(cents: number): string {
 }
 
 export default function UpgradePage() {
-  const { clinic } = useAuth();
+  const { clinic, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addToast } = useToast();
@@ -27,6 +27,14 @@ export default function UpgradePage() {
   const [cardName, setCardName] = useState("Demo Upgrade");
   const [loading, setLoading] = useState(false);
   const [receipt, setReceipt] = useState<string | null>(null);
+
+  const isOrgAdmin = user?.role === "org_admin";
+
+  useEffect(() => {
+    if (user && !isOrgAdmin) {
+      router.push("/dashboard");
+    }
+  }, [isOrgAdmin, user, router]);
 
   const planSlugFromUrl = searchParams.get("plan");
 
@@ -145,11 +153,10 @@ export default function UpgradePage() {
             <button
               key={p.id}
               onClick={() => router.replace(`/upgrade?plan=${encodeURIComponent(p.slug)}`)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                selectedPlan?.slug === p.slug
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedPlan?.slug === p.slug
                   ? "bg-brand text-text-on-brand"
                   : "bg-bg-surface border border-border-subtle text-text-secondary hover:border-brand hover:text-brand"
-              }`}
+                }`}
             >
               {p.name} — {formatPrice(p.monthlyPriceCents)}/mo
             </button>

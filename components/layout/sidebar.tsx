@@ -55,7 +55,7 @@ const allNavSections: NavSection[] = [
     items: [
       { label: "Branches", href: "/branches", icon: <Building2 size={20} />, adminOnly: true },
       { label: "Team", href: "/team", icon: <UserCog size={20} />, adminOnly: true },
-      { label: "Billing", href: "/billing", icon: <CreditCard size={20} /> },
+      { label: "Billing", href: "/billing", icon: <CreditCard size={20} />, adminOnly: true },
       { label: "Settings", href: "/settings", icon: <Settings size={20} /> },
     ],
   },
@@ -73,12 +73,13 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
   const plan = clinic?.plan || "free";
   const planModules = clinic?.planModules || {};
   const role = user?.role || "receptionist";
+  const isOrgAdmin = role === "org_admin";
 
   const navSections = allNavSections.map(section => ({
     ...section,
     items: section.items.filter(item => {
       if (item.moduleKey && !planModules[item.moduleKey]) return false;
-      if (item.adminOnly && role !== "org_admin") return false;
+      if (item.adminOnly && !isOrgAdmin) return false;
       return true;
     }),
   })).filter(section => section.items.length > 0);
@@ -180,7 +181,7 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
         {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
       </button>
 
-      {!collapsed && plan === "free" && (
+      {!collapsed && plan === "free" && isOrgAdmin && (
         <div className="mx-2 mb-2">
           <Link href="/upgrade" className="flex items-center gap-2 px-3 py-2 rounded-lg bg-brand/10 text-brand text-sm font-medium hover:bg-brand/20 transition-colors">
             <Sparkles size={16} />

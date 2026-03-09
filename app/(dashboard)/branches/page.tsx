@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Building2, MapPin, Users, Shield, Phone, Mail, Plus,
   Loader2, Search,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 import { orgApi, type OrgBranch } from "@/lib/api";
 import Button from "@/components/ui/button";
 import Input from "@/components/ui/input";
@@ -15,9 +17,20 @@ import Modal from "@/components/ui/modal";
 import { useToast } from "@/lib/toast-context";
 
 export default function BranchesPage() {
+  const { user } = useAuth();
+  const router = useRouter();
   const { addToast } = useToast();
   const [branches, setBranches] = useState<OrgBranch[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isOrgAdmin = user?.role === "org_admin";
+
+  useEffect(() => {
+    if (user && !isOrgAdmin) {
+      router.push("/dashboard");
+    }
+  }, [isOrgAdmin, user, router]);
+
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
 

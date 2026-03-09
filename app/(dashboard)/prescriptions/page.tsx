@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Search, FileText, Printer, X, Pill, Loader2 } from "lucide-react";
+import { Plus, Search, FileText, Printer, X, Pill, Loader2, Calendar, History as HistoryIcon } from "lucide-react";
 import { prescriptionsApi, patientsApi } from "@/lib/api";
 import { Prescription, Medication, Patient } from "@/lib/types";
 import Button from "@/components/ui/button";
@@ -30,6 +30,7 @@ export default function PrescriptionsPage() {
 
   const [rxForm, setRxForm] = useState({
     patientId: "", patientSearch: "", diagnosis: "", notes: "",
+    followupRequired: false, followupDate: "", followupNotes: "",
     medications: [{ id: "1", drugName: "", dosage: "", frequency: "", duration: "", notes: "" }] as Medication[],
   });
 
@@ -102,6 +103,10 @@ export default function PrescriptionsPage() {
         diagnosis: rxForm.diagnosis,
         notes: rxForm.notes,
         prescription_date: new Date().toISOString().split("T")[0],
+        status: status.toLowerCase(),
+        followup_required: rxForm.followupRequired,
+        followup_date: rxForm.followupRequired ? rxForm.followupDate : undefined,
+        followup_notes: rxForm.followupRequired ? rxForm.followupNotes : undefined,
         medications: rxForm.medications
           .filter((m) => m.drugName)
           .map((m) => ({
@@ -113,7 +118,11 @@ export default function PrescriptionsPage() {
           })),
       });
       addToast({ type: "success", title: `Prescription ${status === "Draft" ? "saved as draft" : "finalized"}` });
-      setRxForm({ patientId: "", patientSearch: "", diagnosis: "", notes: "", medications: [{ id: "1", drugName: "", dosage: "", frequency: "", duration: "", notes: "" }] });
+      setRxForm({
+        patientId: "", patientSearch: "", diagnosis: "", notes: "",
+        followupRequired: false, followupDate: "", followupNotes: "",
+        medications: [{ id: "1", drugName: "", dosage: "", frequency: "", duration: "", notes: "" }]
+      });
       setCreateOpen(false);
       await fetchPrescriptions();
     } catch {
@@ -263,6 +272,50 @@ export default function PrescriptionsPage() {
             />
           </div>
 
+          {/* Follow-up Section */}
+          <div className="bg-bg-base/50 p-4 rounded-xl border border-border-subtle space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <HistoryIcon className="text-brand" size={18} />
+                <div>
+                  <p className="text-sm font-semibold text-text-primary">Follow-up Required?</p>
+                  <p className="text-[11px] text-text-muted">Automatically schedules an appointment</p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={rxForm.followupRequired}
+                  onChange={(e) => setRxForm(f => ({ ...f, followupRequired: e.target.checked }))}
+                />
+                <div className="w-11 h-6 bg-border-subtle peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand"></div>
+              </label>
+            </div>
+
+            {rxForm.followupRequired && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-border-subtle"
+              >
+                <Input
+                  label="Follow-up Date"
+                  type="date"
+                  value={rxForm.followupDate}
+                  onChange={(e) => setRxForm(f => ({ ...f, followupDate: e.target.value }))}
+                  required={rxForm.followupRequired}
+                />
+                <Input
+                  label="Follow-up Notes"
+                  placeholder="e.g., Check recovery progress"
+                  value={rxForm.followupNotes}
+                  onChange={(e) => setRxForm(f => ({ ...f, followupNotes: e.target.value }))}
+                />
+              </motion.div>
+            )}
+          </div>
+
           <div className="flex gap-3">
             <Button variant="ghost" onClick={() => handleCreate("Draft")} isLoading={creating}>
               Save Draft
@@ -346,6 +399,21 @@ export default function PrescriptionsPage() {
               <div>
                 <h4 className="text-xs font-semibold text-text-muted uppercase mb-1">Notes</h4>
                 <p className="text-sm text-text-secondary">{viewRx.notes}</p>
+              </div>
+            )}
+
+            {viewRx.followup_required && viewRx.followup_date && (
+              <div className="bg-brand/5 p-4 rounded-xl border border-brand/20">
+                <h4 className="text-xs font-semibold text-brand uppercase mb-2 flex items-center gap-1.5">
+                  <Calendar size={14} /> Scheduled Follow-up
+                </h4>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-text-primary">Date: {formatDate(viewRx.followup_date)}</p>
+                  <Badge variant="brand">Scheduled</Badge>
+                </div>
+                {viewRx.followup_notes && (
+                  <p className="text-xs text-text-secondary mt-1.5 font-medium italic">“{viewRx.followup_notes}”</p>
+                )}
               </div>
             )}
 

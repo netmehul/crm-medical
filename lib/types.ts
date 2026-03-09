@@ -69,6 +69,9 @@ export interface Prescription {
   medications: Medication[];
   notes?: string;
   status: "Draft" | "Finalized";
+  followup_required?: boolean;
+  followup_date?: string;
+  followup_notes?: string;
 }
 
 export interface Medication {

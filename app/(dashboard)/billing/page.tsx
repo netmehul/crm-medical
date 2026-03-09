@@ -28,6 +28,12 @@ export default function BillingPage() {
   const isOrgAdmin = user?.role === "org_admin";
 
   useEffect(() => {
+    if (!loading && !isOrgAdmin) {
+      router.push("/dashboard");
+    }
+  }, [isOrgAdmin, loading, router]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function load() {
@@ -81,11 +87,10 @@ export default function BillingPage() {
           <div className="flex items-center justify-between mb-4">
             <h1 className="font-display font-bold text-xl text-text-primary">Current Plan</h1>
             <span
-              className={`px-2.5 py-1 rounded-full text-sm font-medium ${
-                currentPlan === "pro"
-                  ? "bg-warning/15 text-warning"
-                  : "bg-info/15 text-info"
-              }`}
+              className={`px-2.5 py-1 rounded-full text-sm font-medium ${currentPlan === "pro"
+                ? "bg-warning/15 text-warning"
+                : "bg-info/15 text-info"
+                }`}
             >
               {currentPlanData?.name || (currentPlan === "pro" ? "Pro" : "Free")}
             </span>
@@ -119,11 +124,10 @@ export default function BillingPage() {
               return (
                 <div
                   key={plan.id}
-                  className={`flex items-center justify-between p-4 rounded-lg border ${
-                    isCurrent
-                      ? "border-brand bg-brand/5"
-                      : "border-border-subtle bg-bg-surface"
-                  }`}
+                  className={`flex items-center justify-between p-4 rounded-lg border ${isCurrent
+                    ? "border-brand bg-brand/5"
+                    : "border-border-subtle bg-bg-surface"
+                    }`}
                 >
                   <div>
                     <div className="flex items-center gap-2">
