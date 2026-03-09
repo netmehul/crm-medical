@@ -5,13 +5,11 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard, Building2, LogOut, ChevronLeft, ChevronRight,
-  Shield, CreditCard,
+  Shield, CreditCard, LayoutDashboard, Building2, ChevronRight, ChevronLeft, LogOut
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBreadcrumb } from "@/lib/breadcrumb-context";
 import { cn } from "@/lib/utils";
-import ModeToggle from "@/components/ui/mode-toggle";
 
 const navItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -203,7 +201,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             })()}
           </div>
           <div className="flex items-center gap-3">
-            <ModeToggle />
             <span className="text-[10px] font-mono bg-[#ef4444]/10 text-[#ef4444] px-2 py-0.5 rounded-full font-medium">
               PLATFORM
             </span>

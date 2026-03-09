@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
-import ModeToggle from "@/components/ui/mode-toggle";
 
 const navLinks = [
   { label: "Features", href: "#features" },
@@ -73,7 +72,6 @@ export default function Navbar() {
 
           {/* Desktop CTA */}
           <div className="hidden lg:flex items-center gap-3">
-            <ModeToggle />
             <a
               href="/auth/login"
               className="font-sans text-[15px] font-medium text-text-secondary hover:text-text-primary transition-colors px-4 py-2"
@@ -91,7 +89,6 @@ export default function Navbar() {
 
           {/* Mobile Hamburger */}
           <div className="lg:hidden flex items-center gap-3">
-            <ModeToggle />
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="text-text-primary p-2 cursor-pointer"

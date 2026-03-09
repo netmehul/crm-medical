@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth-context";
 import { useBreadcrumb } from "@/lib/breadcrumb-context";
 import Avatar from "@/components/ui/avatar";
-import ModeToggle from "@/components/ui/mode-toggle";
 import Link from "next/link";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -153,11 +152,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
               </button>
             )}
           </AnimatePresence>
-        </div>
-
-        {/* Mode toggle - hide on very small mobile if crowded? No, let's keep for now */}
-        <div className="hidden sm:block">
-          <ModeToggle />
         </div>
 
         {/* Notifications */}

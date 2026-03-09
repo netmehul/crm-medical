@@ -378,7 +378,7 @@ export default function BookAppointmentPage() {
             disabled={!effectivePatientId || !date || !time || submitting}
             isLoading={submitting}
           >
-            {submitting ? <Loader2 size={18} className="animate-spin" /> : <CalendarPlus size={18} />}
+            <CalendarPlus size={18} />
             Confirm Appointment
           </Button>
           <Button variant="ghost" className="w-full h-12" onClick={() => router.back()}>Cancel Booking</Button>

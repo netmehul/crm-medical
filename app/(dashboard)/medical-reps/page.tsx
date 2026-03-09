@@ -179,9 +179,8 @@ export default function MedicalRepsPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors relative cursor-pointer ${
-                activeTab === tab.key ? "text-brand" : "text-text-muted hover:text-text-secondary"
-              }`}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors relative cursor-pointer ${activeTab === tab.key ? "text-brand" : "text-text-muted hover:text-text-secondary"
+                }`}
             >
               {tab.label}
               {activeTab === tab.key && <motion.div layoutId="mr-tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand rounded-full" />}
@@ -287,9 +286,8 @@ export default function MedicalRepsPage() {
                         ...f,
                         products: selected ? f.products.filter((x) => x !== p.name) : [...f.products, p.name],
                       }))}
-                      className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
-                        selected ? "bg-brand/15 text-brand border border-border-brand" : "bg-bg-surface text-text-secondary border border-border-subtle"
-                      }`}
+                      className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${selected ? "bg-brand/15 text-brand border border-border-brand" : "bg-bg-surface text-text-secondary border border-border-subtle"
+                        }`}
                     >
                       {p.name}
                     </button>
@@ -308,8 +306,8 @@ export default function MedicalRepsPage() {
             </div>
             <div className="flex gap-3">
               <Button variant="ghost" onClick={() => setLogVisitOpen(false)}>Cancel</Button>
-              <Button onClick={handleLogVisit} disabled={submitting}>
-                {submitting ? <><Loader2 size={16} className="animate-spin" /> Logging...</> : "Log Visit"}
+              <Button onClick={handleLogVisit} isLoading={submitting}>
+                Log Visit
               </Button>
             </div>
           </div>
@@ -321,8 +319,8 @@ export default function MedicalRepsPage() {
             <p className="text-sm text-text-secondary">Are you sure you want to delete this medical representative? This action cannot be undone.</p>
             <div className="flex gap-3">
               <Button variant="ghost" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
-              <Button variant="danger" onClick={() => deleteConfirmId && handleDeleteRep(deleteConfirmId)} disabled={submitting}>
-                {submitting ? <><Loader2 size={16} className="animate-spin" /> Deleting...</> : "Delete"}
+              <Button variant="danger" onClick={() => deleteConfirmId && handleDeleteRep(deleteConfirmId)} isLoading={submitting}>
+                Delete
               </Button>
             </div>
           </div>
@@ -406,8 +404,8 @@ export default function MedicalRepsPage() {
           </div>
           <div className="flex gap-3 pt-2">
             <Button variant="ghost" onClick={() => setAddRepOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddRep} disabled={submitting}>
-              {submitting ? <><Loader2 size={16} className="animate-spin" /> Adding...</> : "Add Representative"}
+            <Button onClick={handleAddRep} isLoading={submitting}>
+              Add Representative
             </Button>
           </div>
         </div>

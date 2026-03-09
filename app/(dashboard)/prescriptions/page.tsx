@@ -264,11 +264,11 @@ export default function PrescriptionsPage() {
           </div>
 
           <div className="flex gap-3">
-            <Button variant="ghost" onClick={() => handleCreate("Draft")} disabled={creating}>
-              {creating ? <Loader2 size={16} className="animate-spin" /> : null} Save Draft
+            <Button variant="ghost" onClick={() => handleCreate("Draft")} isLoading={creating}>
+              Save Draft
             </Button>
-            <Button onClick={() => handleCreate("Finalized")} disabled={creating}>
-              {creating ? <Loader2 size={16} className="animate-spin" /> : null} Finalize Prescription
+            <Button onClick={() => handleCreate("Finalized")} isLoading={creating}>
+              Finalize Prescription
             </Button>
           </div>
         </div>

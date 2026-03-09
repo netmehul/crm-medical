@@ -39,8 +39,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${bricolage.variable} ${instrumentSans.variable} ${firaCode.variable} antialiased`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
-          themes={["light", "dark"]}
+          defaultTheme="light"
+          forcedTheme="light"
           enableSystem={false}
         >
           <AuthProvider>
