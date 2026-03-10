@@ -113,7 +113,7 @@ export default function UpgradePage() {
   const handleUpgrade = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPlan) {
-      addToast({ type: "error", title: "Select a plan", message: "Please choose a plan from the Billing page." });
+      addToast({ type: "error", title: "Select a plan", message: "Please choose a plan from the Subscription page." });
       return;
     }
     setLoading(true);
@@ -136,7 +136,7 @@ export default function UpgradePage() {
     return (
       <div className="max-w-lg mx-auto mt-20 text-center">
         <p className="text-text-secondary mb-6">No upgrade plans available.</p>
-        <Button onClick={() => router.push("/billing")}>Back to Billing</Button>
+        <Button onClick={() => router.push("/settings?activeTab=subscription")}>Back to Subscription</Button>
       </div>
     );
   }

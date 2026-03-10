@@ -56,7 +56,7 @@ const allNavSections: NavSection[] = [
         items: [
             { label: "Branches", href: "/branches", icon: <Building2 size={20} />, adminOnly: true },
             { label: "Team", href: "/team", icon: <UserCog size={20} />, adminOnly: true },
-            { label: "Billing", href: "/billing", icon: <CreditCard size={20} /> },
+            { label: "Billing", href: "/billing", icon: <CreditCard size={20} />, adminOnly: true },
             { label: "Settings", href: "/settings", icon: <Settings size={20} /> },
         ],
     },
@@ -69,15 +69,16 @@ interface MobileDrawerProps {
 
 export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
     const pathname = usePathname();
-    const { user, clinic, logout } = useAuth();
+    const { user, clinic, logout, isPlatformAdmin } = useAuth();
     const role = user?.role || "receptionist";
+    const isOrgAdmin = role === "org_admin" && !isPlatformAdmin;
     const planModules = clinic?.planModules || {};
 
     const filteredSections = allNavSections.map(section => ({
         ...section,
         items: section.items.filter(item => {
             if (item.moduleKey && !planModules[item.moduleKey]) return false;
-            if (item.adminOnly && role !== "org_admin") return false;
+            if (item.adminOnly && !isOrgAdmin) return false;
             return true;
         }),
     })).filter(section => section.items.length > 0);
@@ -152,7 +153,14 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                                             <span className={isActive(item.href) ? "text-brand" : "text-text-muted"}>
                                                 {item.icon}
                                             </span>
-                                            <span className="text-sm font-medium">{item.label}</span>
+                                            <div className="flex flex-1 items-center justify-between">
+                                                <span className="text-sm font-medium">{item.label}</span>
+                                                {item.label === "Billing" && (
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand/10 text-brand uppercase tracking-wider">
+                                                        Soon
+                                                    </span>
+                                                )}
+                                            </div>
                                         </Link>
                                     ))}
                                 </div>

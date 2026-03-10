@@ -786,8 +786,8 @@ export const orgApi = {
   deactivateUser: (userId: string) =>
     request<{ id: string; deactivated: boolean }>(`/org/team/${userId}`, { method: "DELETE" }),
 
-  getBilling: () =>
-    request<Record<string, unknown>>("/org/billing"),
+  getSubscription: () =>
+    request<Record<string, unknown>>("/org/subscription"),
 };
 
 // ─── External Labs API ──────────────────────────────────────────────

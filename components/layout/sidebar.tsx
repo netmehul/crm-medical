@@ -69,12 +69,12 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
   const pathname = usePathname();
-  const { user, clinic, logout } = useAuth();
-
+  const { user, clinic, logout, isPlatformAdmin } = useAuth();
+  
   const plan = clinic?.plan || "free";
   const planModules = clinic?.planModules || {};
   const role = user?.role || "receptionist";
-  const isOrgAdmin = role === "org_admin";
+  const isOrgAdmin = role === "org_admin" && !isPlatformAdmin;
 
   const navSections = allNavSections.map(section => ({
     ...section,
@@ -135,38 +135,39 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
               {section.items.map((item) => {
                 const active = isActive(item.href);
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg group relative font-sans",
-                      active
-                        ? "nav-active text-text-brand"
-                        : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
-                    )}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    <span className={cn("shrink-0", active ? "text-brand" : "text-text-muted group-hover:text-brand")}>
-                      {item.icon}
-                    </span>
-                    <AnimatePresence>
-                      {!collapsed && (
-                        <motion.span
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          className="text-sm font-medium whitespace-nowrap"
-                        >
-                          {item.label}
-                        </motion.span>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg group relative font-sans",
+                        active
+                          ? "nav-active text-text-brand"
+                          : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                       )}
-                    </AnimatePresence>
-                    {collapsed && (
-                      <div className="absolute left-full ml-2 px-2 py-1 bg-bg-elevated border border-border-base rounded text-xs text-text-primary whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50">
-                        {item.label}
-                      </div>
-                    )}
-                  </Link>
+                      title={collapsed ? item.label : undefined}
+                    >
+                      <span className={cn("shrink-0", active ? "text-brand" : "text-text-muted group-hover:text-brand")}>
+                        {item.icon}
+                      </span>
+                      <AnimatePresence>
+                        {!collapsed && (
+                          <motion.div
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            className="flex flex-1 items-center justify-between"
+                          >
+                            <span className="text-sm font-medium whitespace-nowrap">
+                              {item.label}
+                            </span>
+                            {item.label === "Billing" && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand/10 text-brand uppercase tracking-wider">
+                                Soon
+                              </span>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </Link>
                 );
               })}
             </div>
