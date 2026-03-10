@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Users, CalendarDays, Clock, AlertTriangle, Phone, CalendarPlus, CheckCircle, ArrowRight } from "lucide-react";
+import { Users, CalendarDays, Clock, AlertTriangle, Phone, CalendarPlus, CheckCircle, ArrowRight, CreditCard, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
@@ -10,7 +10,8 @@ import StatCard from "@/components/modules/dashboard/stat-card";
 import Badge from "@/components/ui/badge";
 import Avatar from "@/components/ui/avatar";
 import Button from "@/components/ui/button";
-import { formatTime, timeAgo } from "@/lib/utils";
+import { formatTime, timeAgo, formatDate } from "@/lib/utils";
+import { formatUSD } from "@/lib/currency";
 import { useToast } from "@/lib/toast-context";
 import { useAuth } from "@/lib/auth-context";
 import { patientsApi, appointmentsApi, inventoryApi, prescriptionsApi } from "@/lib/api";
@@ -57,6 +58,7 @@ export default function DashboardPage() {
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([]);
   const [recentPrescriptions, setRecentPrescriptions] = useState<Prescription[]>([]);
+  const [paymentSummary, setPaymentSummary] = useState<Record<string, number>>({});
 
   const upcomingBookings = allAppointments.filter((a) => a.status === "Scheduled").slice(0, 3);
   const pendingFollowUps = allAppointments.filter((a) => a.status === "Scheduled").length;
@@ -66,12 +68,13 @@ export default function DashboardPage() {
     try {
       const todayStr = new Date().toISOString().split("T")[0];
 
-      const [patientsRes, todayRes, allRes, lowStock, rxRes] = await Promise.all([
+      const [patientsRes, todayRes, allRes, lowStock, rxRes, paySum] = await Promise.all([
         patientsApi.list({ limit: 1 }),
         appointmentsApi.list({ date: todayStr, limit: 20 }),
         appointmentsApi.list({ limit: 50 }),
         hasInventory ? inventoryApi.lowStock() : Promise.resolve([]),
         prescriptionsApi.list({ limit: 5 }),
+        hasInventory ? inventoryApi.getPaymentSummary() : Promise.resolve({}),
       ]);
 
       setTotalPatients(patientsRes.total);
@@ -79,6 +82,7 @@ export default function DashboardPage() {
       setAllAppointments(allRes.items);
       setLowStockItems(lowStock);
       setRecentPrescriptions(rxRes.items);
+      setPaymentSummary(paySum as Record<string, number>);
     } catch (err) {
       console.error("Dashboard fetch error:", err);
       addToast({ type: "error", title: "Failed to load dashboard data" });
@@ -191,7 +195,7 @@ export default function DashboardPage() {
         <StatCard label="Today" value={todayAppointments.length} icon={<CalendarDays size={20} />} color="var(--secondary)" sparklineData={[4, 6, 3, 5, 7, 4, todayAppointments.length]} delay={0.1} />
         <StatCard label="Follow-ups" value={pendingFollowUps} icon={<Clock size={20} />} color="var(--warning)" sparklineData={[2, 3, 4, 3, 5, 4, pendingFollowUps]} delay={0.2} />
         {hasInventory ? (
-          <StatCard label="Low Stock" value={lowStockItems.length} icon={<AlertTriangle size={20} />} color="var(--danger)" sparklineData={[1, 2, 1, 3, 2, 3, lowStockItems.length]} delay={0.3} />
+          <StatCard label="Pending Payments" value={formatUSD(paymentSummary.pending_cents || 0)} icon={<CreditCard size={20} />} color="var(--warning)" sparklineData={[20, 30, 45, 10, 25, 35, 40]} delay={0.3} isCurrency />
         ) : (
           <StatCard label="Prescriptions" value={recentPrescriptions.length} icon={<CheckCircle size={20} />} color="var(--success)" sparklineData={[5, 8, 4, 6, 9, 3, 5]} delay={0.3} />
         )}
@@ -289,7 +293,7 @@ export default function DashboardPage() {
                 <motion.div
                   key={apt.id}
                   initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
                   className="p-3 rounded-lg bg-bg-surface border border-border-subtle hover:border-border-brand transition-all"
                 >
@@ -382,37 +386,52 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Low Stock Alerts — only when inventory module is available */}
+        {/* Low Stock Alerts or Payment Reminders */}
         {hasInventory && (
-          <div className="glass-card p-5">
-            <h3 className="font-display font-semibold text-sm text-text-primary mb-4">Low Stock Alerts</h3>
-            <div className="space-y-3">
-              {lowStockItems.length === 0 ? (
-                <p className="text-center py-8 text-text-muted text-sm">All items sufficiently stocked.</p>
-              ) : (
-                lowStockItems.map((item, i) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.04 }}
-                    className="flex items-center gap-3 p-3 rounded-lg bg-bg-surface border border-border-subtle"
-                  >
-                    <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-danger/10 text-danger">
-                      <AlertTriangle size={14} />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-text-primary">{item.name}</p>
-                      <p className="text-xs text-text-muted">
-                        {item.currentStock} {item.unit} remaining
-                      </p>
+          <div className="glass-card p-5 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display font-semibold text-sm text-text-primary">Suppliers & Stock</h3>
+              <div className="flex gap-1">
+                 <Badge variant="warning" className="text-[9px]">{lowStockItems.length} Low</Badge>
+                 {paymentSummary.overdue_cents > 0 && <Badge variant="danger" className="text-[9px]">Debt</Badge>}
+              </div>
+            </div>
+            
+            <div className="space-y-4 flex-1">
+              {/* Payment Summary Box */}
+              <div className="p-3 rounded-xl bg-bg-surface border border-border-subtle shadow-sm group hover:border-brand/40 transition-all">
+                 <div className="flex justify-between items-center mb-2">
+                    <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Total Payables</span>
+                    <CreditCard size={14} className="text-brand" />
+                 </div>
+                 <div className="flex items-baseline gap-2">
+                    <span className="text-lg font-mono font-black text-text-primary">{formatUSD(paymentSummary.pending_cents)}</span>
+                    <span className="text-[10px] font-bold text-danger italic">({formatUSD(paymentSummary.overdue_cents)} overdue)</span>
+                 </div>
+                 <Link href="/suppliers" className="mt-3 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-brand/5 text-brand text-[10px] font-bold hover:bg-brand/10 transition-colors uppercase tracking-wider">
+                    Supplier Report <ChevronRight size={12} />
+                 </Link>
+              </div>
+
+              {/* Top 3 Low Stock */}
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Low Stock Alerts</p>
+                {lowStockItems.length === 0 ? (
+                  <p className="text-[11px] text-text-muted italic">All items stocked.</p>
+                ) : (
+                  lowStockItems.slice(0, 3).map((item) => (
+                    <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-bg-base border border-border-subtle/50">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-bold text-text-primary truncate">{item.name}</p>
+                        <p className="text-[9px] text-text-muted">{item.currentStock} {item.unit} left</p>
+                      </div>
+                      <Badge variant={item.status === "Out of Stock" ? "danger" : "warning"} className="scale-75 origin-right">
+                        {item.status.split(' ')[0]}
+                      </Badge>
                     </div>
-                    <Badge variant={item.status === "Out of Stock" ? "danger" : "warning"}>
-                      {item.status}
-                    </Badge>
-                  </motion.div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </div>
         )}

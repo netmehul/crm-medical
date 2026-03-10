@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Users, CalendarDays, FileText, History,
   Package, Settings, ChevronLeft, ChevronRight, Briefcase,
-  Building2, CreditCard, UserCog, Sparkles, LogOut, FlaskConical,
+  Building2, CreditCard, UserCog, Sparkles, LogOut, FlaskConical, Truck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -47,6 +47,7 @@ const allNavSections: NavSection[] = [
     items: [
       { label: "Medical Reps", href: "/medical-reps", icon: <Briefcase size={20} />, moduleKey: "mrManagement" },
       { label: "Inventory", href: "/inventory", icon: <Package size={20} />, moduleKey: "inventory" },
+      { label: "Suppliers", href: "/suppliers", icon: <Truck size={20} />, moduleKey: "inventory" },
       { label: "External Labs", href: "/labs", icon: <FlaskConical size={20} />, moduleKey: "external_labs" },
     ],
   },

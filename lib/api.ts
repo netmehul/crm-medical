@@ -2,7 +2,7 @@ import type {
   Patient, Appointment, Prescription, Medication,
   InventoryItem, MedicalRep, MRVisit, PatientNote, Invoice,
   ExternalLab, LabReferral, ReferralTest, ReferralCommunication,
-  PatientReport,
+  PatientReport, Supplier, SupplierVisit, Notification
 } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
@@ -172,11 +172,15 @@ function mapInventoryItem(r: Record<string, unknown>): InventoryItem {
     currentStock: qty,
     unit: (r.unit || "") as string,
     threshold,
-    unitPrice: r.unit_price as number | undefined,
-    supplier: r.supplier as string | undefined,
+    unitPrice: r.cost_per_unit_cents as number | undefined,
+    sellingPriceCents: (r.selling_price_cents || 0) as number,
+    supplier: r.supplier_name as string || r.supplier as string | undefined,
+    supplierId: r.supplier_id as string | undefined,
+    costPerUnitCents: r.cost_per_unit_cents as number | undefined,
     expiryDate: r.expiry_date as string | undefined,
     status,
     lastUpdated: (r.updated_at || r.created_at || "") as string,
+    split: r.split as InventoryItem["split"],
   };
 }
 
@@ -209,6 +213,52 @@ function mapMRVisit(r: Record<string, unknown>): MRVisit {
     purpose: purposeMap[(r.purpose as string) || "other"] || "Other",
     products: r.products_discussed ? [(r.products_discussed as string)] : [],
     notes: r.notes as string | undefined,
+  };
+}
+
+function mapSupplier(r: Record<string, unknown>): Supplier {
+  return {
+    id: r.id as string,
+    name: r.name as string,
+    contactPerson: r.contact_person as string | undefined,
+    phone: r.phone as string | undefined,
+    email: r.email as string | undefined,
+    address: r.address as string | undefined,
+    notes: r.notes as string | undefined,
+    isActive: r.is_active === 1 || r.is_active === true,
+    totalBilledCents: r.total_billed_cents as number | undefined,
+    pendingBalanceCents: r.pending_balance_cents as number | undefined,
+    overdueBalanceCents: r.overdue_balance_cents as number | undefined,
+    totalPaidCents: r.total_paid_cents as number | undefined,
+    lastVisitDate: r.last_visit_date as string | undefined,
+  };
+}
+
+function mapSupplierVisit(r: Record<string, unknown>): SupplierVisit {
+  return {
+    id: r.id as string,
+    supplierId: r.supplier_id as string,
+    visitDate: r.visit_date as string,
+    repName: r.rep_name as string | undefined,
+    repPhone: r.rep_phone as string | undefined,
+    purpose: r.purpose as SupplierVisit["purpose"],
+    notes: r.notes as string | undefined,
+    loggedBy: r.logged_by as string | undefined,
+  };
+}
+
+function mapNotification(r: Record<string, unknown>): Notification {
+  return {
+    id: r.id as string,
+    title: r.title as string,
+    message: r.message as string,
+    type: r.type as Notification["type"],
+    isRead: r.is_read === 1 || r.is_read === true,
+    readAt: r.read_at as string | undefined,
+    dueDate: r.due_date as string | undefined,
+    referenceId: r.reference_id as string | undefined,
+    referenceType: r.reference_type as string | undefined,
+    createdAt: r.created_at as string,
   };
 }
 
@@ -258,7 +308,7 @@ function mapReport(r: Record<string, unknown>): PatientReport {
   };
 }
 
-// ─── Paginated response helper
+// ─── Paginated response helper ──────────────────────────────────────
 
 interface PaginatedResult<T> {
   items: T[];
@@ -413,7 +463,7 @@ export const prescriptionsApi = {
 // ─── Inventory API ──────────────────────────────────────────────────
 
 export const inventoryApi = {
-  list: async (params: { page?: number; limit?: number; search?: string } = {}) => {
+  list: async (params: { page?: number; limit?: number; search?: string; category?: string } = {}) => {
     const data = await request<{ items: Record<string, unknown>[]; pagination: Record<string, unknown> }>(
       `/inventory${qs(params)}`
     );
@@ -442,7 +492,7 @@ export const inventoryApi = {
   delete: (id: string) =>
     request(`/inventory/${id}`, { method: "DELETE" }),
 
-  stockTransaction: async (id: string, body: { type: "in" | "out"; quantity: number; reason?: string }) => {
+  stockTransaction: async (id: string, body: Record<string, unknown>) => {
     const data = await request<Record<string, unknown>>(`/inventory/${id}/stock`, {
       method: "POST", body: JSON.stringify(body),
     });
@@ -453,6 +503,87 @@ export const inventoryApi = {
     const data = await request<Record<string, unknown>[]>("/inventory/low-stock");
     return (data || []).map(mapInventoryItem);
   },
+
+  getPaymentSummary: async () => {
+    return await request<Record<string, number>>("/inventory/payment-summary");
+  },
+
+  getSupplierReport: async () => {
+    const data = await request<Record<string, unknown>[]>("/inventory/supplier-report");
+    return data.map(mapSupplier);
+  },
+
+  markAsPaid: (id: string, body: { paid_amount_cents: number; notes?: string }) =>
+    request(`/inventory/transactions/${id}/pay`, { method: "PUT", body: JSON.stringify(body) }),
+};
+
+// ─── Suppliers API ─────────────────────────────────────────────────
+
+export const suppliersApi = {
+  list: async () => {
+    const data = await request<Record<string, unknown>>("/suppliers");
+    const rows = (data?.rows as Record<string, unknown>[]) || (Array.isArray(data) ? data : []);
+    return rows.map(mapSupplier);
+  },
+
+  create: async (body: Record<string, unknown>) => {
+    const data = await request<Record<string, unknown>>("/suppliers", {
+      method: "POST", body: JSON.stringify(body),
+    });
+    return mapSupplier(data);
+  },
+
+  get: async (id: string) => {
+    const data = await request<Record<string, unknown>>(`/suppliers/${id}`);
+    return mapSupplier(data);
+  },
+
+  update: async (id: string, body: Record<string, unknown>) => {
+    const data = await request<Record<string, unknown>>(`/suppliers/${id}`, {
+      method: "PUT", body: JSON.stringify(body),
+    });
+    return mapSupplier(data);
+  },
+
+  delete: (id: string) =>
+    request(`/suppliers/${id}`, { method: "DELETE" }),
+
+  logVisit: async (id: string, body: Record<string, unknown>) => {
+    const data = await request<Record<string, unknown>>(`/suppliers/${id}/visits`, {
+      method: "POST", body: JSON.stringify(body),
+    });
+    return mapSupplierVisit(data);
+  },
+
+  getVisits: async (id: string) => {
+    const data = await request<Record<string, unknown>[]>(`/suppliers/${id}/visits`);
+    return data.map(mapSupplierVisit);
+  },
+
+  getBalance: async (id: string) => {
+    return await request<Record<string, number>>(`/suppliers/${id}/balance`);
+  },
+};
+
+// ─── Notifications API ─────────────────────────────────────────────
+
+export const notificationsApi = {
+  list: async () => {
+    const data = await request<Record<string, unknown>>("/notifications");
+    const rows = (data?.rows as Record<string, unknown>[]) || (Array.isArray(data) ? data : []);
+    return rows.map(mapNotification);
+  },
+
+  getUnreadCount: async () => {
+    const data = await request<{ unread_count: number }>("/notifications/unread-count");
+    return data.unread_count;
+  },
+
+  markRead: (id: string) =>
+    request(`/notifications/${id}/read`, { method: "PUT" }),
+
+  markAllRead: () =>
+    request("/notifications/read-all", { method: "PUT" }),
 };
 
 // ─── Medical Reps API ───────────────────────────────────────────────
@@ -535,8 +666,6 @@ export const patientFilesApi = {
     return mapPaginated(data, mapReport);
   },
   uploadReport: async (patientId: string, formData: FormData) => {
-    // When sending FormData, we must NOT set Content-Type: application/json
-    // The browser will set the correct multipart/form-data boundary
     const token = getToken();
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -802,8 +931,21 @@ export const referralsApi = {
     return mapLabReferral(data);
   },
 
-  delete: (id: string) =>
-    request(`/referrals/${id}`, { method: "DELETE" }),
+  uploadLetter: async (id: string, formData: FormData) => {
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${BASE_URL}/referrals/${id}/letter`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.success === false) {
+      throw new ApiError(json.message || "Upload failed", res.status);
+    }
+    return mapLabReferral(json.data);
+  },
 
   generateLetter: async (id: string) =>
     request<{ path: string; url: string }>(`/referrals/${id}/generate-letter`, { method: "POST" }),

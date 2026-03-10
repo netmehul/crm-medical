@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, Search, Bell, X } from "lucide-react";
+import { Menu, Search, Bell, X, CreditCard, AlertCircle, Info, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth-context";
 import { useBreadcrumb } from "@/lib/breadcrumb-context";
+import { notificationsApi } from "@/lib/api";
+import { Notification } from "@/lib/types";
 import Avatar from "@/components/ui/avatar";
 import Link from "next/link";
+import { formatDate } from "@/lib/utils";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -20,6 +23,7 @@ const breadcrumbMap: Record<string, string> = {
   "/history": "History & Follow-ups",
   "/medical-reps": "Medical Reps",
   "/inventory": "Inventory",
+  "/suppliers": "Suppliers",
   "/settings": "Settings",
   "/billing": "Billing",
   "/upgrade": "Upgrade",
@@ -43,10 +47,55 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const notifRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const notifications = [
-    { id: "1", title: "Welcome to MediCRM", message: "Your clinic is set up and ready to go", type: "success", read: false },
-  ];
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const [list, count] = await Promise.all([
+        notificationsApi.list(),
+        notificationsApi.getUnreadCount()
+      ]);
+      setNotifications(list);
+      setUnreadCount(count);
+    } catch (err) {
+      console.error("Failed to load notifications", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000); // 1 minute
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await notificationsApi.markAllRead();
+      fetchNotifications();
+    } catch (err) {
+      console.error("Mark all read failed");
+    }
+  };
+
+  const handleNotifClick = async (n: Notification) => {
+    try {
+      if (!n.isRead) {
+        await notificationsApi.markRead(n.id);
+        fetchNotifications();
+      }
+      setNotifOpen(false);
+      
+      // Navigate based on type
+      if (n.type === 'payment_due' || n.type === 'payment_overdue') {
+        router.push('/inventory');
+      } else if (n.type === 'low_stock') {
+        router.push('/inventory');
+      }
+    } catch (err) {
+      console.error("Notif click error");
+    }
+  };
 
   const pathSegments = pathname.split("/").filter(Boolean);
   const breadcrumbs = [
@@ -80,6 +129,15 @@ export default function Header({ onMenuClick }: HeaderProps) {
     : user?.role === "receptionist"
       ? "var(--secondary)"
       : "var(--warning)";
+
+  const getNotifIcon = (type: string) => {
+    switch (type) {
+      case 'payment_due': return <CreditCard size={16} className="text-warning" />;
+      case 'payment_overdue': return <AlertCircle size={16} className="text-danger" />;
+      case 'low_stock': return <Info size={16} className="text-warning" />;
+      default: return <Bell size={16} className="text-brand" />;
+    }
+  };
 
   return (
     <header
@@ -163,37 +221,56 @@ export default function Header({ onMenuClick }: HeaderProps) {
           >
             <Bell size={18} />
             {unreadCount > 0 && (
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand" />
+              <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-brand text-[8px] font-black text-white flex items-center justify-center shadow-lg transform translate-x-1 -translate-y-1">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
             )}
           </button>
 
           <AnimatePresence>
             {notifOpen && (
               <motion.div
-                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                transition={{ duration: 0.15 }}
-                className="absolute right-0 top-12 w-[calc(100vw-2rem)] sm:w-80 glass-card p-0 overflow-hidden z-[100]"
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.2, type: 'spring', damping: 20 }}
+                className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 glass-card p-0 overflow-hidden z-[100] shadow-2xl border-brand/20"
               >
-                <div className="p-3 border-b border-border-subtle flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-text-primary">Notifications</h3>
-                  <button onClick={() => setNotifOpen(false)} className="text-xs text-text-brand hover:underline cursor-pointer">Mark all read</button>
+                <div className="px-4 py-3 bg-brand/5 border-b border-border-subtle flex items-center justify-between">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-brand">Notifications</h3>
+                  <button onClick={handleMarkAllRead} className="text-[10px] font-bold text-brand hover:text-brand-dark transition-colors uppercase cursor-pointer">Mark all as read</button>
                 </div>
-                <div className="max-h-[60vh] overflow-y-auto">
-                  {notifications.map((n) => (
+                <div className="max-h-[70vh] overflow-y-auto divide-y divide-border-subtle/30">
+                  {notifications.length > 0 ? notifications.map((n) => (
                     <button
                       key={n.id}
-                      onClick={() => {
-                        setNotifOpen(false);
-                        router.push("/dashboard");
-                      }}
-                      className={`w-full text-left px-4 py-3 border-b border-border-subtle/50 hover:bg-bg-hover cursor-pointer ${!n.read ? "bg-brand/5" : ""}`}
+                      onClick={() => handleNotifClick(n)}
+                      className={`w-full text-left px-4 py-4 hover:bg-bg-hover transition-all flex gap-3 group cursor-pointer ${!n.isRead ? "bg-white" : "bg-bg-surface/30 opacity-70"}`}
                     >
-                      <p className="text-sm text-text-primary font-medium">{n.title}</p>
-                      <p className="text-xs text-text-secondary mt-0.5">{n.message}</p>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm ${n.isRead ? 'bg-bg-surface' : 'bg-brand/10'}`}>
+                        {getNotifIcon(n.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                         <div className="flex justify-between items-start mb-0.5">
+                            <p className={`text-xs font-bold truncate ${!n.isRead ? "text-text-primary" : "text-text-secondary"}`}>{n.title}</p>
+                            {!n.isRead && <div className="w-1.5 h-1.5 rounded-full bg-brand shadow-[0_0_8px_var(--brand)]" />}
+                         </div>
+                         <p className="text-[11px] leading-relaxed text-text-secondary line-clamp-2">{n.message}</p>
+                         <div className="mt-2 flex items-center justify-between">
+                            <span className="text-[9px] font-mono text-text-muted">{formatDate(n.createdAt)}</span>
+                            {n.dueDate && <span className="text-[9px] font-bold text-warning uppercase">Due: {n.dueDate}</span>}
+                         </div>
+                      </div>
                     </button>
-                  ))}
+                  )) : (
+                    <div className="py-12 text-center text-text-muted italic opacity-50 flex flex-col items-center gap-2">
+                       <CheckCircle2 size={32} />
+                       <p className="text-xs">You're all caught up!</p>
+                    </div>
+                  )}
+                </div>
+                <div className="p-3 bg-bg-surface border-t border-border-subtle text-center">
+                   <p className="text-[9px] text-text-muted font-bold uppercase tracking-widest">End of stream</p>
                 </div>
               </motion.div>
             )}
@@ -204,45 +281,53 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <div className="hidden lg:block relative" ref={userMenuRef}>
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex items-center gap-2 cursor-pointer rounded-full hover:bg-bg-hover p-1"
+            className="flex items-center gap-2 cursor-pointer rounded-full hover:bg-bg-hover p-1 transition-all"
             aria-label="User menu"
           >
             <Avatar name={user?.name || "User"} size="sm" ringColor={roleColor} />
+            <div className="text-left hidden lg:block mr-2">
+               <p className="text-[10px] font-black text-text-primary leading-none mb-0.5">{user?.name}</p>
+               <p className="text-[9px] text-text-muted font-bold uppercase tracking-wider leading-none">{user?.role === 'org_admin' ? 'Administrator' : user?.role}</p>
+            </div>
           </button>
 
           <AnimatePresence>
             {userMenuOpen && (
               <motion.div
-                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.15 }}
-                className="absolute right-0 top-12 w-56 glass-card p-1 overflow-hidden z-[100]"
+                className="absolute right-0 mt-2 w-56 glass-card p-1 overflow-hidden z-[100] shadow-2xl"
               >
-                <div className="px-3 py-2 border-b border-border-subtle">
-                  <p className="text-sm font-medium text-text-primary">{user?.name}</p>
-                  <p className="text-xs text-text-muted capitalize">{user?.role}</p>
+                <div className="px-3 py-3 border-b border-border-subtle bg-bg-surface/50">
+                  <p className="text-xs font-bold text-text-primary">{user?.email}</p>
+                  <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest mt-0.5 italic">{clinic?.name}</p>
                 </div>
-                <Link
-                  href="/settings"
-                  onClick={() => setUserMenuOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary rounded"
-                >
-                  My Profile
-                </Link>
-                <Link
-                  href="/settings"
-                  onClick={() => setUserMenuOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary rounded"
-                >
-                  Settings
-                </Link>
-                <button
-                  onClick={() => { setUserMenuOpen(false); logout(); router.push("/auth/login"); }}
-                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-bg-hover rounded cursor-pointer"
-                >
-                  Sign Out
-                </button>
+                <div className="py-1">
+                  <Link
+                    href="/settings"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2 text-xs font-medium text-text-secondary hover:bg-brand/10 hover:text-brand rounded-lg transition-all"
+                  >
+                    My Profile
+                  </Link>
+                  <Link
+                    href="/settings"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2 text-xs font-medium text-text-secondary hover:bg-brand/10 hover:text-brand rounded-lg transition-all"
+                  >
+                    System Settings
+                  </Link>
+                </div>
+                <div className="border-t border-border-subtle pt-1 pb-1">
+                  <button
+                    onClick={() => { setUserMenuOpen(false); logout(); router.push("/auth/login"); }}
+                    className="w-full text-left flex items-center gap-3 px-3 py-2 text-xs font-bold text-danger hover:bg-danger/10 rounded-lg transition-all cursor-pointer"
+                  >
+                    Logout Session
+                  </button>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -250,7 +335,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
         {/* Mobile Avatar (directly links or opens menu? Bottom nav has more, so direct menu or settings is fine) */}
         <div className="lg:hidden">
-          <Link href="/settings">
+          <Link href="/settings" className="block p-1">
             <Avatar name={user?.name || "User"} size="sm" ringColor={roleColor} />
           </Link>
         </div>

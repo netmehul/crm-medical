@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils";
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title?: string;
+  title?: ReactNode;
   children: ReactNode;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl" | "full";
 }
 
 const sizeClasses = {
@@ -18,6 +18,8 @@ const sizeClasses = {
   md: "max-w-lg",
   lg: "max-w-2xl",
   xl: "max-w-4xl",
+  "2xl": "max-w-7xl",
+  full: "w-full max-w-[95vw]"
 };
 
 export default function Modal({ isOpen, onClose, title, children, size = "md" }: ModalProps) {
@@ -68,7 +70,7 @@ export default function Modal({ isOpen, onClose, title, children, size = "md" }:
 
             <div className="flex items-center justify-between mb-5">
               {title ? (
-                <h2 className="text-xl md:text-lg font-display font-bold text-text-primary">{title}</h2>
+                <div className="text-xl md:text-lg font-display font-bold text-text-primary">{title}</div>
               ) : <div />}
               <button
                 onClick={onClose}

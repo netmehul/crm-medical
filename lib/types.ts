@@ -125,6 +125,33 @@ export interface MRVisit {
   duration?: string;
 }
 
+export interface Supplier {
+  id: string;
+  name: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  isActive: boolean;
+  totalBilledCents?: number;
+  pendingBalanceCents?: number;
+  overdueBalanceCents?: number;
+  totalPaidCents?: number;
+  lastVisitDate?: string;
+}
+
+export interface SupplierVisit {
+  id: string;
+  supplierId: string;
+  visitDate: string;
+  repName?: string;
+  repPhone?: string;
+  purpose: 'delivery' | 'sample_drop' | 'follow_up' | 'other';
+  notes?: string;
+  loggedBy?: string;
+}
+
 export interface InventoryItem {
   id: string;
   name: string;
@@ -134,10 +161,17 @@ export interface InventoryItem {
   unit: string;
   threshold: number;
   unitPrice?: number;
-  supplier?: string;
+  supplier?: string; // name
+  supplierId?: string;
+  costPerUnitCents?: number;
+  sellingPriceCents?: number;
   expiryDate?: string;
   status: "In Stock" | "Low Stock" | "Out of Stock";
   lastUpdated: string;
+  split?: {
+    purchased: number;
+    sample: number;
+  };
 }
 
 export interface StockTransaction {
@@ -147,6 +181,11 @@ export interface StockTransaction {
   type: "Stock In" | "Stock Out";
   quantity: number;
   date: string;
+  stockType: "purchased" | "sample";
+  unitCostCents: number;
+  totalCostCents: number;
+  paymentStatus: "pending" | "paid" | "overdue" | "na";
+  paymentDueDate?: string;
   notes?: string;
   previousBalance: number;
   newBalance: number;
@@ -164,9 +203,13 @@ export interface Notification {
   id: string;
   title: string;
   message: string;
-  type: "info" | "success" | "warning" | "error";
-  read: boolean;
-  timestamp: string;
+  type: "payment_due" | "payment_overdue" | "low_stock" | "general";
+  isRead: boolean;
+  readAt?: string;
+  dueDate?: string;
+  referenceId?: string;
+  referenceType?: string;
+  createdAt: string;
 }
 
 export interface PatientNote {

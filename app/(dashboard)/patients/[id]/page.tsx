@@ -345,7 +345,7 @@ export default function PatientProfilePage() {
                 className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-all relative cursor-pointer ${isActive ? "text-brand" : "text-text-muted hover:text-text-secondary"
                   }`}
               >
-                {tab.key === "prescriptions" && isActive ? "Rx" : tab.label}
+                {tab.key === "prescriptions" && isActive ? "Prescriptions" : tab.label}
                 {isActive && (
                   <motion.div
                     layoutId="tab-indicator"
