@@ -105,8 +105,8 @@ export default function Header({ onMenuClick }: HeaderProps) {
       .map((seg, i, arr) => {
         const fullPath = "/" + arr.slice(0, i + 1).join("/");
         const customLabel = customLabels[fullPath];
-        const isUuid = UUID_REGEX.test(seg);
-        const label = customLabel || breadcrumbMap[fullPath] || (isUuid ? "…" : seg.charAt(0).toUpperCase() + seg.slice(1));
+        const isTechnicalId = UUID_REGEX.test(seg) || /^[A-Za-z0-9]{12}$/.test(seg);
+        const label = customLabel || breadcrumbMap[fullPath] || (isTechnicalId ? (seg.length > 8 ? seg.slice(0, 8) + "…" : seg) : seg.charAt(0).toUpperCase() + seg.slice(1));
         return { label, href: fullPath };
       }),
   ];

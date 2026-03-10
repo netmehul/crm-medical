@@ -154,8 +154,8 @@ function mapMedication(r: Record<string, unknown>): Medication {
 }
 
 function mapInventoryItem(r: Record<string, unknown>): InventoryItem {
-  const qty = (r.quantity ?? 0) as number;
-  const threshold = (r.reorder_level ?? r.low_stock_threshold ?? 10) as number;
+  const qty = r.quantity != null ? Number(r.quantity) : 0;
+  const threshold = r.reorder_level != null ? Number(r.reorder_level) : (r.low_stock_threshold != null ? Number(r.low_stock_threshold) : 10);
   const status: InventoryItem["status"] =
     qty === 0 ? "Out of Stock" : qty <= threshold ? "Low Stock" : "In Stock";
 
@@ -172,11 +172,11 @@ function mapInventoryItem(r: Record<string, unknown>): InventoryItem {
     currentStock: qty,
     unit: (r.unit || "") as string,
     threshold,
-    unitPrice: r.cost_per_unit_cents as number | undefined,
-    sellingPriceCents: (r.selling_price_cents || 0) as number,
+    unitPrice: r.cost_per_unit_cents != null ? Number(r.cost_per_unit_cents) : undefined,
+    sellingPriceCents: r.selling_price_cents != null ? Number(r.selling_price_cents) : 0,
     supplier: r.supplier_name as string || r.supplier as string | undefined,
     supplierId: r.supplier_id as string | undefined,
-    costPerUnitCents: r.cost_per_unit_cents as number | undefined,
+    costPerUnitCents: r.cost_per_unit_cents != null ? Number(r.cost_per_unit_cents) : undefined,
     expiryDate: r.expiry_date as string | undefined,
     status,
     lastUpdated: (r.updated_at || r.created_at || "") as string,
@@ -226,10 +226,10 @@ function mapSupplier(r: Record<string, unknown>): Supplier {
     address: r.address as string | undefined,
     notes: r.notes as string | undefined,
     isActive: r.is_active === 1 || r.is_active === true,
-    totalBilledCents: r.total_billed_cents as number | undefined,
-    pendingBalanceCents: r.pending_balance_cents as number | undefined,
-    overdueBalanceCents: r.overdue_balance_cents as number | undefined,
-    totalPaidCents: r.total_paid_cents as number | undefined,
+    totalBilledCents: r.total_billed_cents != null ? Number(r.total_billed_cents) : undefined,
+    pendingBalanceCents: r.pending_balance_cents != null ? Number(r.pending_balance_cents) : undefined,
+    overdueBalanceCents: r.overdue_balance_cents != null ? Number(r.overdue_balance_cents) : undefined,
+    totalPaidCents: r.total_paid_cents != null ? Number(r.total_paid_cents) : undefined,
     lastVisitDate: r.last_visit_date as string | undefined,
   };
 }
@@ -278,8 +278,8 @@ function mapInvoice(r: Record<string, unknown>): Invoice {
     id: r.id as string,
     patientId: r.patient_id as string,
     invoiceNumber: r.invoice_number as string | undefined,
-    totalAmount: (r.total_amount ?? 0) as number,
-    paidAmount: (r.paid_amount ?? 0) as number,
+    totalAmount: r.total_amount != null ? Number(r.total_amount) : 0,
+    paidAmount: r.paid_amount != null ? Number(r.paid_amount) : 0,
     paymentStatus: (r.payment_status || "draft") as string,
     description: r.description as string | undefined,
     invoiceDate: (r.invoice_date || "") as string,

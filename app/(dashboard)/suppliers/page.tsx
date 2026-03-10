@@ -72,7 +72,7 @@ export default function SuppliersPage() {
     };
   }, [activeDropdown]);
 
-  const filteredSuppliers = suppliers.filter(s => 
+  const filteredSuppliers = suppliers.filter(s =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
     s.contactPerson?.toLowerCase().includes(search.toLowerCase())
   );
@@ -160,9 +160,9 @@ export default function SuppliersPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { label: "Total Billed", value: formatUSD(totals.billed), color: "text-text-primary", icon: <Building2 className="text-brand" /> },
-          { label: "Pending Balance", value: formatUSD(totals.pending), color: "text-warning", icon: <CreditCard className="text-warning" /> },
-          { label: "Overdue Payments", value: formatUSD(totals.overdue), color: "text-danger", icon: <AlertCircle className="text-danger" /> },
+          { label: "Total Purchased", value: formatUSD(totals.billed, true), color: "text-text-primary", icon: <Building2 className="text-brand" /> },
+          { label: "Pending Balance", value: formatUSD(totals.pending, true), color: "text-warning", icon: <CreditCard className="text-warning" /> },
+          { label: "Overdue Payments", value: formatUSD(totals.overdue, true), color: "text-danger", icon: <AlertCircle className="text-danger" /> },
         ].map((kpi, idx) => (
           <div key={idx} className="glass-card p-5 flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-bg-surface border border-border-subtle flex items-center justify-center">
@@ -178,9 +178,9 @@ export default function SuppliersPage() {
 
       <div className="flex items-center gap-4 mb-2">
         <div className="flex-1 max-w-sm">
-          <Input 
-            placeholder="Search suppliers..." 
-            value={search} 
+          <Input
+            placeholder="Search suppliers..."
+            value={search}
             onChange={(e) => setSearch(e.target.value)}
             icon={<Search size={16} />}
           />
@@ -189,7 +189,7 @@ export default function SuppliersPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {filteredSuppliers.map((supplier) => (
-          <motion.div 
+          <motion.div
             key={supplier.id}
             layout
             className="glass-card group hover:border-brand/40 transition-all cursor-default overflow-hidden flex flex-col"
@@ -204,16 +204,16 @@ export default function SuppliersPage() {
                     {supplier.isActive ? "Active" : "Inactive"}
                   </Badge>
                   <div className="relative supplier-dropdown">
-                    <button 
-                      onClick={(e) => { 
-                        e.preventDefault(); 
-                        setActiveDropdown(activeDropdown === supplier.id ? null : supplier.id); 
-                      }} 
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setActiveDropdown(activeDropdown === supplier.id ? null : supplier.id);
+                      }}
                       className="p-1.5 rounded-md hover:bg-bg-elevated text-text-muted hover:text-brand transition-all duration-200 active:scale-90"
                     >
                       <MoreHorizontal size={16} />
                     </button>
-                    
+
                     {activeDropdown === supplier.id && (
                       <div className="absolute right-0 top-10 w-36 bg-bg-surface border border-border-subtle rounded-xl shadow-lg z-10 py-1 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                         <button
@@ -271,7 +271,7 @@ export default function SuppliersPage() {
               </div>
             </div>
 
-            <Link 
+            <Link
               href={`/suppliers/${supplier.id}`}
               className="p-3 bg-bg-surface border-t border-border-subtle flex items-center justify-center gap-2 text-xs font-medium text-text-secondary hover:text-brand hover:bg-brand/5 transition-all"
             >
@@ -279,7 +279,7 @@ export default function SuppliersPage() {
             </Link>
           </motion.div>
         ))}
-        
+
         {filteredSuppliers.length === 0 && (
           <div className="col-span-full py-20 text-center glass-card border-dashed">
             <Truck size={40} className="mx-auto text-text-muted mb-4 opacity-20" />
@@ -292,46 +292,46 @@ export default function SuppliersPage() {
       {/* Add Supplier Modal */}
       <Modal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} title="Add New Supplier" size="md">
         <div className="space-y-4">
-          <Input 
-            label="Company Name" 
-            required 
-            placeholder="e.g. PharmaCorp Ltd" 
+          <Input
+            label="Company Name"
+            required
+            placeholder="e.g. PharmaCorp Ltd"
             value={formData.name}
-            onChange={(e) => setFormData({...formData, name: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           />
-          <Input 
-            label="Contact Person" 
-            placeholder="e.g. John Doe" 
+          <Input
+            label="Contact Person"
+            placeholder="e.g. John Doe"
             value={formData.contact_person}
-            onChange={(e) => setFormData({...formData, contact_person: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
           />
           <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label="Phone" 
-              placeholder="Contact number" 
+            <Input
+              label="Phone"
+              placeholder="Contact number"
               value={formData.phone}
-              onChange={(e) => setFormData({...formData, phone: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             />
-            <Input 
-              label="Email" 
-              placeholder="Email address" 
+            <Input
+              label="Email"
+              placeholder="Email address"
               value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
           </div>
-          <Input 
-            label="Address" 
-            placeholder="Full office address" 
+          <Input
+            label="Address"
+            placeholder="Full office address"
             value={formData.address}
-            onChange={(e) => setFormData({...formData, address: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           />
           <div>
             <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">Internal Notes</label>
-            <textarea 
+            <textarea
               className="w-full bg-bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm text-text-primary resize-none h-24 focus:border-brand focus:ring-4 focus:ring-brand/10 transition-all"
               placeholder="Payment terms, delivery preferences, etc."
               value={formData.notes}
-              onChange={(e) => setFormData({...formData, notes: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             />
           </div>
           <div className="flex gap-3 pt-4">
@@ -346,46 +346,46 @@ export default function SuppliersPage() {
       {/* Edit Supplier Modal */}
       <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Supplier" size="md">
         <div className="space-y-4">
-          <Input 
-            label="Company Name" 
-            required 
-            placeholder="e.g. PharmaCorp Ltd" 
+          <Input
+            label="Company Name"
+            required
+            placeholder="e.g. PharmaCorp Ltd"
             value={editFormData.name}
-            onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
+            onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
           />
-          <Input 
-            label="Contact Person" 
-            placeholder="e.g. John Doe" 
+          <Input
+            label="Contact Person"
+            placeholder="e.g. John Doe"
             value={editFormData.contact_person}
-            onChange={(e) => setEditFormData({...editFormData, contact_person: e.target.value})}
+            onChange={(e) => setEditFormData({ ...editFormData, contact_person: e.target.value })}
           />
           <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label="Phone" 
-              placeholder="Contact number" 
+            <Input
+              label="Phone"
+              placeholder="Contact number"
               value={editFormData.phone}
-              onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})}
+              onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
             />
-            <Input 
-              label="Email" 
-              placeholder="Email address" 
+            <Input
+              label="Email"
+              placeholder="Email address"
               value={editFormData.email}
-              onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
+              onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
             />
           </div>
-          <Input 
-            label="Address" 
-            placeholder="Full office address" 
+          <Input
+            label="Address"
+            placeholder="Full office address"
             value={editFormData.address}
-            onChange={(e) => setEditFormData({...editFormData, address: e.target.value})}
+            onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })}
           />
           <div>
             <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">Internal Notes</label>
-            <textarea 
+            <textarea
               className="w-full bg-bg-surface border border-border-subtle rounded-xl px-4 py-3 text-sm text-text-primary resize-none h-24 focus:border-brand focus:ring-4 focus:ring-brand/10 transition-all"
               placeholder="Payment terms, delivery preferences, etc."
               value={editFormData.notes}
-              onChange={(e) => setEditFormData({...editFormData, notes: e.target.value})}
+              onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
             />
           </div>
           <div className="flex gap-3 pt-4">

@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { adminApi, type DashboardStats, type OrgListItem } from "@/lib/admin-api";
 
+import { useToast } from "@/lib/toast-context";
+
 function StatCard({
   label, value, sub, icon: Icon, color, delay = 0,
 }: {
@@ -41,21 +43,31 @@ function Skeleton({ className = "" }: { className?: string }) {
 }
 
 export default function AdminDashboardPage() {
+  const { addToast } = useToast();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentOrgs, setRecentOrgs] = useState<OrgListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
+      console.log("Admin Dashboard: Fetching data...");
       const [dashData, orgData] = await Promise.all([
         adminApi.getDashboard(),
         adminApi.getOrganizations({ page: 1 }),
       ]);
+      console.log("Admin Dashboard: Success", dashData);
       setStats(dashData);
       setRecentOrgs((orgData.items || []).slice(0, 5));
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      console.error("Admin Dashboard: Failed to load", err);
+      addToast({
+        type: "error",
+        title: "Platform Error",
+        message: err.message || "Failed to connect to the administration service."
+      });
+    }
     setLoading(false);
-  }, []);
+  }, [addToast]);
 
   useEffect(() => { load(); }, [load]);
 

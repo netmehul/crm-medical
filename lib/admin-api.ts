@@ -23,8 +23,12 @@ async function adminRequest<T = unknown>(
       ...(options.headers as Record<string, string>),
     },
   });
-  const json = await res.json();
-  if (!res.ok) throw new ApiError(json.message || "Request failed", res.status);
+  
+  const json = await res.json().catch(() => ({}));
+  
+  if (!res.ok) {
+    throw new ApiError(json.message || "Request failed", res.status);
+  }
   return json.data as T;
 }
 

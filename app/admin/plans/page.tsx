@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { CreditCard, Plus, Pencil, Copy, Loader2, Building2 } from "lucide-react";
 import { adminApi, type AdminPlanListItem } from "@/lib/admin-api";
+import { useToast } from "@/lib/toast-context";
 
 function formatPrice(cents: number): string {
   if (cents === 0) return "Free";
@@ -13,6 +14,7 @@ function formatPrice(cents: number): string {
 }
 
 export default function PlansPage() {
+  const { addToast } = useToast();
   const router = useRouter();
   const [plans, setPlans] = useState<AdminPlanListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,17 +24,23 @@ export default function PlansPage() {
     try {
       const data = await adminApi.getPlans();
       setPlans(data);
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      console.error("Plans: Load error", err);
+      addToast({ type: "error", title: "Load Failed", message: err.message });
+    }
     setLoading(false);
-  }, []);
+  }, [addToast]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleDuplicate = async (id: string) => {
     try {
       const created = await adminApi.duplicatePlan(id);
+      addToast({ type: "success", title: "Plan Duplicated" });
       router.push(`/admin/plans/${created.id}`);
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      addToast({ type: "error", title: "Error", message: err.message });
+    }
   };
 
   if (loading) {

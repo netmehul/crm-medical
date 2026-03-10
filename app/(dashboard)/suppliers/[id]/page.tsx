@@ -13,11 +13,13 @@ import Modal from "@/components/ui/modal";
 import Input from "@/components/ui/input";
 import Badge from "@/components/ui/badge";
 import { useToast } from "@/lib/toast-context";
+import { useBreadcrumb } from "@/lib/breadcrumb-context";
 
 export default function SupplierDetailPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const { addToast } = useToast();
+  const breadcrumb = useBreadcrumb();
   
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [visits, setVisits] = useState<SupplierVisit[]>([]);
@@ -41,16 +43,22 @@ export default function SupplierDetailPage() {
       ]);
       setSupplier(sData);
       setVisits(vData);
+      if (breadcrumb) {
+        breadcrumb.setLabel(`/suppliers/${id}`, sData.name);
+      }
     } catch (err) {
       addToast({ type: "error", title: "Failed to load data", message: (err as Error).message });
     } finally {
       setLoading(false);
     }
-  }, [id, addToast]);
+  }, [id, addToast, breadcrumb]);
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    return () => {
+      if (breadcrumb) breadcrumb.clearLabel(`/suppliers/${id}`);
+    };
+  }, [fetchData, id, breadcrumb]);
 
   const handleLogVisit = async () => {
     setSubmitting(true);
@@ -94,7 +102,9 @@ export default function SupplierDetailPage() {
         </button>
         <div>
           <h1 className="font-display font-bold text-2xl text-text-primary">{supplier.name}</h1>
-          <p className="text-sm text-text-secondary">Supplier ID: {supplier.id.slice(0, 8)}</p>
+          <p className="text-sm text-text-secondary font-mono">
+            <span className="text-text-muted">REF:</span> #{id.toUpperCase().slice(0, 8)}
+          </p>
         </div>
       </div>
 

@@ -410,7 +410,7 @@ export default function PrescriptionsPage() {
                   <p className="text-xs text-text-muted">123 Health Street, Medical District</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-text-muted">Rx# <span className="font-mono text-text-secondary">{viewRx.id.slice(0, 8).toUpperCase()}</span></p>
+                  <p className="text-xs text-text-muted font-mono"><span className="text-text-muted">REF:</span> #{viewRx.id.slice(0, 8).toUpperCase()}</p>
                   <p className="text-xs text-text-muted">{formatDate(viewRx.date)}</p>
                 </div>
               </div>

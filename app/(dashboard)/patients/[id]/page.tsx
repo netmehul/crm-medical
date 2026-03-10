@@ -295,7 +295,7 @@ export default function PatientProfilePage() {
               </div>
             </div>
             <p className="text-sm text-text-secondary font-medium truncate">
-              {patient.age}y • {patient.gender} • <span className="text-text-muted font-mono bg-bg-surface px-2 py-0.5 rounded border border-border-subtle">{patient.patientCode || patient.id.slice(0, 8)}</span>
+              {patient.age}y • {patient.gender} • <span className="text-text-muted font-mono bg-bg-surface px-2 py-0.5 rounded border border-border-subtle uppercase">REF: #{patient.patientCode || id.slice(0, 8)}</span>
             </p>
 
             <div className="flex items-center justify-center md:justify-start gap-4 mt-4 overflow-x-auto no-scrollbar pb-1 w-full">

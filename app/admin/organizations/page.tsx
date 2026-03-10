@@ -7,11 +7,13 @@ import {
   Search, Crown, Building2, Users, ShieldOff, ShieldCheck, Filter,
 } from "lucide-react";
 import { adminApi, type OrgListItem, type PaginatedResponse, type AdminPlanListItem } from "@/lib/admin-api";
+import { useToast } from "@/lib/toast-context";
 
 type PlanFilter = string;
 type StatusFilter = "" | "active" | "suspended";
 
 export default function OrganizationsPage() {
+  const { addToast } = useToast();
   const router = useRouter();
   const [data, setData] = useState<PaginatedResponse<OrgListItem> | null>(null);
   const [plans, setPlans] = useState<AdminPlanListItem[]>([]);
@@ -36,9 +38,12 @@ export default function OrganizationsPage() {
       ]);
       setData(orgsResult);
       setPlans(plansData);
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      console.error("Organizations: Load error", err);
+      addToast({ type: "error", title: "Load Failed", message: err.message });
+    }
     setLoading(false);
-  }, [search, planFilter, statusFilter, page]);
+  }, [search, planFilter, statusFilter, page, addToast]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -48,8 +53,11 @@ export default function OrganizationsPage() {
     setActionLoading(orgId);
     try {
       await adminApi.updateOrgPlan(orgId, planSlug);
+      addToast({ type: "success", title: "Plan Updated", message: "Organization plan has been updated." });
       load();
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      addToast({ type: "error", title: "Error", message: err.message });
+    }
     setActionLoading(null);
   };
 
@@ -57,8 +65,11 @@ export default function OrganizationsPage() {
     setActionLoading(orgId);
     try {
       await adminApi.updateStatus(orgId, status);
+      addToast({ type: "success", title: "Status Updated", message: `Organization is now ${status}.` });
       load();
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      addToast({ type: "error", title: "Error", message: err.message });
+    }
     setActionLoading(null);
   };
 

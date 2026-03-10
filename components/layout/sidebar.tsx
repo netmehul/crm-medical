@@ -45,8 +45,8 @@ const allNavSections: NavSection[] = [
   {
     title: "Operations",
     items: [
-      { label: "Medical Reps", href: "/medical-reps", icon: <Briefcase size={20} />, moduleKey: "mrManagement" },
       { label: "Inventory", href: "/inventory", icon: <Package size={20} />, moduleKey: "inventory" },
+      { label: "Medical Reps", href: "/medical-reps", icon: <Briefcase size={20} />, moduleKey: "mrManagement" },
       { label: "Suppliers", href: "/suppliers", icon: <Truck size={20} />, moduleKey: "inventory" },
       { label: "External Labs", href: "/labs", icon: <FlaskConical size={20} />, moduleKey: "external_labs" },
     ],
